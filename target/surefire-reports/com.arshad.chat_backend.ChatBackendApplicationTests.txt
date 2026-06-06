@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.arshad.chat_backend.ChatBackendApplicationTests
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 7.622 s -- in com.arshad.chat_backend.ChatBackendApplicationTests

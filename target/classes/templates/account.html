@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>My Profile - DevChat</title>
+    
+    <th:block th:if="${_csrf != null}">
+        <meta name="_csrf" th:content="${_csrf.token}"/>
+        <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    </th:block>
+    
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/account.css}">
+</head>
+<body>
+
+    <div id="statusAlert" class="status-alert" style="display: none;"></div>
+    
+    <div class="profile-card">
+        
+        <div class="search-header">
+            <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search for users...">
+            </div>
+        </div>
+
+        <div class="identity-section">
+            <div class="avatar-wrapper">
+                <div class="profile-avatar">
+                    <span th:text="${#strings.substring(username,0,1).toUpperCase()}">U</span>
+                </div> <div class="status-dot" th:classappend="${status != null and status.name() == 'SLEEPING' ? 'sleeping' : 'active'}"></div>
+            </div> <h2 class="username" th:text="${username}">Username</h2>
+            <div class="account-type-badge">
+                <i class="fa-solid fa-briefcase"></i> <span th:text="${accountType}">Corporate</span>
+            </div>
+        </div>
+
+        <div class="network-stats">
+            <div class="stat-box">
+                <span class="stat-number">12</span>
+                <span class="stat-label">Friends</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-box">
+                <span class="stat-number">3</span>
+                <span class="stat-label">Requests</span>
+            </div>
+        </div>
+
+        <div class="status-controller">
+            <div class="status-info">
+                <h4>Network Firewall</h4>
+                <p>Control who can send you requests.</p>
+            </div>
+            <select class="status-dropdown">
+                <option value="OPEN_TO_CHAT" th:selected="${status == null or status.name() == 'OPEN_TO_CHAT'}">🟢 Open to Chat (Visible)</option>
+                <option value="SLEEPING" th:selected="${status != null and status.name() == 'SLEEPING'}">🔴 Sleeping (Block Spam)</option>
+            </select>
+        </div>
+
+        <div class="action-grid">
+            <a href="/chat" class="action-pill primary-pill">
+                <i class="fa-regular fa-comment-dots"></i>
+                <span>Open Chat</span>
+            </a>
+            
+            <form th:action="@{/logout}" method="post" style="width: 100%;">
+                <button type="submit" class="action-pill danger-pill">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span>Log Out</span>
+                </button>
+            </form>
+        </div>
+
+    </div>
+    <script th:src="@{/js/account.js}"></script>
+
+</body>
+</html>

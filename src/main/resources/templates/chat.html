@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>DevChat | Context-Aware Chat</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.1.4/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/chat.css}">
+    <style>
+        /* Dropdown Structure Logic */
+        .dropdown-menu-container {
+            position: relative;
+            display: inline-block;
+        }
+        .context-dropdown {
+            position: absolute;
+            right: 0;
+            top: 30px;
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            min-width: 160px;
+            z-index: 1000;
+            display: none;
+            overflow: hidden;
+        }
+        .context-dropdown div {
+            padding: 10px 15px;
+            font-size: 14px;
+            color: #cbd5e1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.2s;
+        }
+        .context-dropdown div:hover {
+            background-color: #334155;
+        }
+        .context-dropdown .danger-action {
+            color: #f87171;
+        }
+        .context-dropdown .danger-action:hover {
+            background-color: #7f1d1d;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="app-nav-rail">
+        <div class="nav-top">
+            <div class="nav-icon active"><i class="fa-solid fa-message"></i></div>
+            <div class="nav-icon"><i class="fa-solid fa-phone"></i></div>
+            <div class="nav-icon"><i class="fa-solid fa-circle-notch"></i></div>
+            <div class="nav-icon"><i class="fa-solid fa-users"></i></div>
+            <div class="nav-icon"><i class="fa-solid fa-robot"></i></div>
+        </div>
+        <div class="nav-bottom">
+            <a th:href="@{/profile}" class="nav-icon"><i class="fa-solid fa-gear"></i></a>
+            <form th:action="@{/logout}" method="post" style="margin:0;">
+                <button type="submit" class="nav-icon logout-btn" title="Logout"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+            </form>
+            <div class="nav-avatar" id="my-avatar">U</div>
+        </div>
+    </nav>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>Chats</h2>
+            <div class="header-actions">
+                <i class="fa-regular fa-pen-to-square" onclick="createNewRoom()" title="New Channel"></i>
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+            </div>
+        </div>
+
+        <div class="search-container" style="position: relative;">
+            <input type="text" 
+                   id="search-input" 
+                   placeholder="Search for users..." 
+                   onkeyup="handleSearchInput(event)"
+                   autocomplete="off">
+            <div id="search-results" class="search-dropdown" style="display: none;"></div>
+        </div>
+
+        <div class="filter-pills">
+            <span class="pill active">All</span>
+        </div>
+
+        <div class="group-list" id="dynamic-room-list"></div>
+    </div>
+
+    <main class="chat-main">
+        <div class="placeholder-screen" id="placeholder">
+            <div class="action-buttons-container">
+                <div class="action-item">
+                    <div class="circle-btn"><i class="fa-regular fa-file-lines"></i></div>
+                    <span>Send document</span>
+                </div>
+                <div class="action-item">
+                    <div class="circle-btn"><i class="fa-solid fa-user-plus"></i></div>
+                    <span>Add contact</span>
+                </div>
+                <div class="action-item">
+                    <div class="circle-btn"><i class="fa-solid fa-circle-nodes" style="color: #c952ff;"></i></div>
+                    <span>Surprise Feature</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="active-chat-area" id="chat-main-area" style="display: none;">
+            
+            <div class="chat-header">
+                <div class="chat-header-info">
+                    <div class="chat-header-avatar" id="current-room-avatar">#</div>
+                    <div class="chat-header-text">
+                        <h2 id="current-room-name">general</h2>
+                        <span>tap here for contact info</span>
+                        <span id="typing-status" style="display: none; font-size: 12px; font-style: italic; margin-left: 10px;"></span>
+                    </div>
+                </div>
+
+                <div class="header-actions">
+                    <span id="active-chat-actions">
+                        <i class="fa-solid fa-video"></i>
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </span>
+                    
+                    <div class="dropdown-menu-container">
+                        <i class="fa-solid fa-ellipsis-vertical" style="cursor:pointer;" onclick="toggleContextDropdown(event)" title="More Options"></i>
+                        <div id="header-context-dropdown" class="context-dropdown">
+                            </div>
+                    </div>
+                </div>
+            </div>
+            <div id="messageArea" class="message-area"></div>
+            
+            <div id="request-action-area" style="display: none; padding: 15px; text-align: center; background-color: #1e293b; border-top: 1px solid #334155;">
+                <p style="color: #94a3b8; margin-bottom: 10px; font-size: 14px;">This is a new chat request.</p>
+                <button onclick="respondToRequest('ACCEPTED')" style="background: #10b981; color: white; border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; margin-right: 10px; font-weight: bold;">Accept ✅</button>
+                <button onclick="respondToRequest('REJECTED')" style="background: #ef4444; color: white; border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;">Reject ❌</button>
+            </div>
+
+            <div id="blocked-area" style="display: none; padding: 15px; text-align: center; background-color: #1e293b; color: #ef4444; border-top: 1px solid #334155; font-weight: bold;">
+                Your request was rejected.
+            </div>
+
+            <div id="chat-input-area" class="input-area">
+                <i class="fa-regular fa-face-smile icon-btn"></i>
+                <i class="fa-solid fa-paperclip icon-btn"></i>
+                <input type="text" id="message" placeholder="Type a message" autocomplete="off" oninput="handleTypingEvent()" onkeypress="handleKeyPress(event)"/>
+                <button class="send-btn icon-btn" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+
+        </div>
+        </main>
+
+    <script th:inline="javascript">
+        window.CURRENT_USERNAME = /*[[${username}]]*/ 'Unknown'; 
+    </script>
+    <script th:src="@{/js/chat.js}"></script>
+</body>
+</html>

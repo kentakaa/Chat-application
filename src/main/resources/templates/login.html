@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Login - Live Chat</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/login.css}">
+</head>
+<body>
+
+    <div class="auth-container">
+        <h2>Welcome Back</h2>
+
+        <div th:if="${param.error}" class="alert alert-error">
+            <i class="fa-solid fa-circle-exclamation"></i> Invalid username or password.
+        </div>
+
+        <div th:if="${param.logout}" class="alert alert-success">
+            <i class="fa-solid fa-circle-check"></i> You have been logged out.
+        </div>
+        
+        <div th:if="${param.success}" class="alert alert-success">
+            <i class="fa-solid fa-circle-check"></i> Registration successful! Please log in.
+        </div>
+
+        <form th:action="@{/login}" method="post">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autocomplete="off" placeholder="Enter your username" />
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required placeholder="Enter your password" />
+            </div>
+
+            <button type="submit" class="auth-btn">Log In</button>
+        </form>
+
+        <div class="auth-links">
+            Need an account? <a href="/register">Register here</a>
+        </div>
+    </div>
+
+</body>
+</html>
