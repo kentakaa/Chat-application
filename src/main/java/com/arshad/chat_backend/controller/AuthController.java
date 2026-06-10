@@ -43,7 +43,7 @@ public String loginPage() {
         // Check 1: Kya username pehle se occupied hai?
         if (userRepository.findByUsername(username).isPresent()) {
             redirectAttributes.addFlashAttribute("error", "Username is already taken. Try another one!");
-            return "redirect:/register"; // Error ke sath wapas form par bhej do
+            return "redirect:/register"; 
         }
 
         // Creating new user

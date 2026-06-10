@@ -7,7 +7,7 @@ import java.util.List;
 
 @Repository
 public interface ChatRepository extends MongoRepository<ChatMessage, String> {
-    // Basic CRUD operations (save, delete, findById) automatically milte hain.
+    
     List<ChatMessage> findByRoomId(String roomId);
     void deleteByRoomId(String roomId);
 boolean existsByRoomIdAndSender(String roomId, String sender);

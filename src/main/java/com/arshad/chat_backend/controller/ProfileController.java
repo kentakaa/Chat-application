@@ -23,7 +23,7 @@ public class ProfileController {
 
     @Autowired
     private UserRepository userRepository;
-
+// changed
 
     @GetMapping("/profile")
     public String showProfilePage(Model model, Principal principal) {

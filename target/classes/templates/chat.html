@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DevChat | Context-Aware Chat</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/chat.css}">
     <style>
@@ -57,7 +57,7 @@
             <div class="nav-icon"><i class="fa-solid fa-robot"></i></div>
         </div>
         <div class="nav-bottom">
-            <a th:href="@{/profile}" class="nav-icon"><i class="fa-solid fa-gear"></i></a>
+            <a th:href="@{/profile}" class="nav-icon" title="Settings / Profile"><i class="fa-solid fa-gear"></i></a>
             <form th:action="@{/logout}" method="post" style="margin:0;">
                 <button type="submit" class="nav-icon logout-btn" title="Logout"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
             </form>
@@ -70,7 +70,7 @@
             <h2>Chats</h2>
             <div class="header-actions">
                 <i class="fa-regular fa-pen-to-square" onclick="createNewRoom()" title="New Channel"></i>
-                <i class="fa-solid fa-ellipsis-vertical"></i>
+                <i class="fa-solid fa-ellipsis-vertical" style="cursor: pointer;" title="Menu Options"></i>
             </div>
         </div>
 
@@ -115,24 +115,26 @@
                     <div class="chat-header-avatar" id="current-room-avatar">#</div>
                     <div class="chat-header-text">
                         <h2 id="current-room-name">general</h2>
-                        <span>tap here for contact info</span>
-                        <span id="typing-status" style="display: none; font-size: 12px; font-style: italic; margin-left: 10px;"></span>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="color: #94a3b8; font-size: 13px;">tap here for contact info</span>
+                            <span id="typing-status" style="display: none; font-size: 12px; font-style: italic;"></span>
+                        </div>
                     </div>
                 </div>
 
                 <div class="header-actions">
                     <span id="active-chat-actions">
-                        <i class="fa-solid fa-video"></i>
-                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <i class="fa-solid fa-video" title="Video Call"></i>
+                        <i class="fa-solid fa-magnifying-glass" title="Search Conversation"></i>
                     </span>
                     
                     <div class="dropdown-menu-container">
                         <i class="fa-solid fa-ellipsis-vertical" style="cursor:pointer;" onclick="toggleContextDropdown(event)" title="More Options"></i>
-                        <div id="header-context-dropdown" class="context-dropdown">
-                            </div>
+                        <div id="header-context-dropdown" class="context-dropdown"></div>
                     </div>
                 </div>
             </div>
+
             <div id="messageArea" class="message-area"></div>
             
             <div id="request-action-area" style="display: none; padding: 15px; text-align: center; background-color: #1e293b; border-top: 1px solid #334155;">
@@ -146,14 +148,14 @@
             </div>
 
             <div id="chat-input-area" class="input-area">
-                <i class="fa-regular fa-face-smile icon-btn"></i>
-                <i class="fa-solid fa-paperclip icon-btn"></i>
+                <i class="fa-regular fa-face-smile icon-btn" title="Emojis"></i>
+                <i class="fa-solid fa-paperclip icon-btn" title="Attach File"></i>
                 <input type="text" id="message" placeholder="Type a message" autocomplete="off" oninput="handleTypingEvent()" onkeypress="handleKeyPress(event)"/>
-                <button class="send-btn icon-btn" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+                <button class="send-btn icon-btn" onclick="sendMessage()" title="Send Message"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
 
         </div>
-        </main>
+    </main>
 
     <script th:inline="javascript">
         window.CURRENT_USERNAME = /*[[${username}]]*/ 'Unknown'; 

@@ -18,21 +18,21 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login","/register", "/css/**", "/js/**").permitAll() // Inko bina login ke allow karo
-                        .anyRequest().authenticated() // Baaki sabke liye login zaroori hai
+                        .requestMatchers("/login","/register", "/css/**", "/js/**","/ws").permitAll() 
+                        .anyRequest().authenticated() 
                 )
                 .formLogin(form -> form
                         .loginPage("/login")
-                        .defaultSuccessUrl("/chat", true) // <-- Yeh line login hote hi chat par phekegi
+                        .defaultSuccessUrl("/chat", true) 
                         .permitAll())
 
                 .logout(logout -> logout.permitAll())
-                .csrf(csrf -> csrf.disable()); // Development ke liye CSRF disable kar rahe hain
+                .csrf(csrf -> csrf.disable()); 
 
         return http.build();
     }
 
-    // Yeh tool tumhare password ko hash (encrypt) karega
+    // Hashing the password before saving in database
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

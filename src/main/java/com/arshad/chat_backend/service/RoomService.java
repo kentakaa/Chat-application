@@ -4,96 +4,103 @@ import com.arshad.chat_backend.entity.ChatMessage;
 import com.arshad.chat_backend.entity.ChatRoom;
 import com.arshad.chat_backend.repository.ChatRepository;
 import com.arshad.chat_backend.repository.RoomRepository;
-
+import com.arshad.chat_backend.dto.RoomLeaveEvent; // Generic event carrier for system messages
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.context.ApplicationEventPublisher; // Decoupled broadcasting
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@Service // Yeh annotation Spring ko batata hai ki yeh humara Business Logic hai
+@Service
 public class RoomService {
 
     @Autowired
     private RoomRepository roomRepository;
-@Autowired
-    private ChatRepository chatRepository;
+
     @Autowired
-    private SimpMessagingTemplate messagingTemplate; // Broadcast karne ke liye Walkie-Talkie
+    private ChatRepository chatRepository;
 
-    // 1. GROUP CREATE KARNE KA LOGIC
+    @Autowired
+    private ApplicationEventPublisher eventPublisher; // NAYA: STOMP template ki jagah injection
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    // 1. CREATE ROOM / DM LOGIC
     public ChatRoom createGroupAndBroadcast(ChatRoom room, String creator) {
-
-        // Logic 1: Safe Name generate karo
         String safeName = room.getName().toLowerCase().replaceAll("\\s+", "-");
-
         var existingRoom = roomRepository.findByName(safeName);
 
         if (existingRoom.isPresent()) {
             log.info("Room '{}' already exists. Returning existing room.", safeName);
-            // Agar room pehle se hai, toh naya mat banao, wahi purana lauta do!
             return existingRoom.get();
         }
 
         room.setName(safeName);
 
-        // Logic 2: Member initialize karo
         if (room.getMembers() == null) {
             room.setMembers(new ArrayList<>());
         }
-if (safeName.contains("_")) {
-            // Agar "jhon_kerb" hai, toh split karke dono ko add karo
+
+        if (safeName.contains("_")) {
+            // DM (Direct Message) State Setup
             String[] users = safeName.split("_");
-            room.getMembers().add(users[0]); // Adds arshad/jhon
+            room.getMembers().add(users[0]);
             room.getMembers().add(users[1]);
             room.setRequestStatus("PENDING"); 
-            room.setInitiator(creator); // Adds kerb
+            room.setInitiator(creator);
         } else {
-            // Agar group hai, toh sirf creator ko daalo (baad mein invite karega)
+            // Group Chat State Setup
             room.getMembers().add(creator);
             room.setAdmin(creator); 
-            room.setRequestStatus("ACCEPTED");// 🎉 Creator ab is group ka Admin hai!
+            room.setRequestStatus("ACCEPTED");
         }
-        // Logic 3: Admin Authority Set Karo
-   
 
-        // Logic 4: Database mein save karo
         ChatRoom savedRoom = roomRepository.save(room);
 
-        // Logic 5: THE BROADCAST MESSAGE
-        String systemMessage = "This group was created by " + creator;
-        log.info("System Broadcast: {}", systemMessage);
+        // System Broadcast Signal Packet
+        ChatMessage systemMsg = new ChatMessage();
+        systemMsg.setRoomId(safeName);
+        systemMsg.setSender("SYSTEM");
+        systemMsg.setContent("Room initialized by " + creator);
+        systemMsg.setType("SYSTEM");
 
-        // WebSocket par sabko bata do ki naya group ban gaya hai
-        // (Yahan tum future mein ChatMessage entity save karwaoge)
-        messagingTemplate.convertAndSend("/topic/" + savedRoom.getId(), systemMessage);
+        try {
+            // Database save taaki chat history mein persist kare
+            chatRepository.save(systemMsg);
+            
+            // Decoupled Background Event Core Pipe line mein push kiya
+            String jsonPayload = objectMapper.writeValueAsString(systemMsg);
+            eventPublisher.publishEvent(new RoomLeaveEvent(safeName, jsonPayload));
+        } catch (Exception e) {
+            log.error("Failed to broadcast system initialization message for room: {}", safeName, e);
+        }
 
         return savedRoom;
     }
 
-    // 2. ADMIN AUTHORITY CHECK KARNE KA LOGIC (Future use)
+    // 2. ADMIN AUTHORITY CHECK (Future Use)
     public boolean addMemberToGroup(String roomId, String newMember, String requester) {
-
         if (roomId == null || roomId.trim().isEmpty()) {
             throw new IllegalArgumentException("Room ID cannot be null or empty!");
         }
         ChatRoom room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
 
-        // SOLID Principle: Sirf Admin hi add kar sakta hai!
         if (!room.getAdmin().equals(requester)) {
-            log.warn("Security Alert: User {} tried to add member to room {} without admin rights!", requester, roomId);
-            return false; // Permission Denied
+            log.warn("Security Alert: User {} unauthorized add attempt in {}", requester, roomId);
+            return false;
         }
 
         room.getMembers().add(newMember);
         roomRepository.save(room);
         return true;
     }
-  public ChatRoom updateRoomStatus(String roomName, String newRequestStatus, String currentUser) {
-        
+
+    // 3. UPDATE ROOM STATUS (Accept/Reject DM Requests)
+    public ChatRoom updateRoomStatus(String roomName, String newRequestStatus, String currentUser) {
         ChatRoom room = roomRepository.findByName(roomName)
                 .orElseThrow(() -> new RuntimeException("Room not found!"));
 
@@ -101,12 +108,10 @@ if (safeName.contains("_")) {
             throw new RuntimeException("Initiator cannot accept/reject their own request!");
         }
 
-        // ✅ Status update kiya aur room save kiya
         room.setRequestStatus(newRequestStatus);
         ChatRoom updatedRoom = roomRepository.save(room);
 
         String broadcastText = "";
-            
         if ("ACCEPTED".equalsIgnoreCase(newRequestStatus)) {
             String currentDate = new java.text.SimpleDateFormat("dd MMM yyyy").format(new java.util.Date());
             broadcastText = currentUser + " accepted the request on " + currentDate;
@@ -114,19 +119,22 @@ if (safeName.contains("_")) {
             broadcastText = "Your request is rejected";
         }
 
-        // 🛑 NAYA LOGIC: System message banakar save aur broadcast karna
         if (!broadcastText.isEmpty()) {
             ChatMessage systemMsg = new ChatMessage();
-            systemMsg.setRoomId(roomName); // Frontend currentRoom se match karega
+            systemMsg.setRoomId(roomName);
             systemMsg.setSender("SYSTEM");
             systemMsg.setContent(broadcastText);
             systemMsg.setType("SYSTEM");
 
-            // Database mein save kiya taaki History load hone par dikhe
-            chatRepository.save(systemMsg); 
-            
-            // Live WebSocket par bhej diya
-            messagingTemplate.convertAndSend("/topic/" + roomName, systemMsg);
+            try {
+                chatRepository.save(systemMsg); 
+                
+                // REST API Context execution thread free up via events
+                String jsonPayload = objectMapper.writeValueAsString(systemMsg);
+                eventPublisher.publishEvent(new RoomLeaveEvent(roomName, jsonPayload));
+            } catch (Exception e) {
+                log.error("Failed to broadcast updated status system msg for room: {}", roomName, e);
+            }
         }
 
         return updatedRoom;

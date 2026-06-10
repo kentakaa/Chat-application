@@ -1,27 +1,44 @@
-var stompClient = null;
+var socket = null; // Native WebSocket Connection Instance
 var username = window.CURRENT_USERNAME;
 var currentRoom = null;
-var currentSubscription = null;
 var joinedRooms = new Set();
 let searchTimeout = null; 
 var roomDetailsCache = {};
-let lastTypingTime = 0; // Typing throttle 
-const TYPING_TIMER_LENGTH = 2000; // 2 second
+let lastTypingTime = 0; 
+const TYPING_TIMER_LENGTH = 2000; 
 
 window.onload = function () {
     if (username && username !== 'Unknown') {
         document.getElementById('my-avatar').innerText = username.charAt(0).toUpperCase();
-        var socket = new SockJS('/ws');
-        stompClient = Stomp.over(socket);
-        stompClient.debug = null;
-        stompClient.connect({}, onConnected, onError);
+        
+        // 🚀 PRINCIPAL CORE UPGRADE: Pure Native Secure Pipeline Establishment
+        // Localhost par 'ws://', Production SSL lagte hi automatic 'wss://' banega frontend standard par
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        socket = new WebSocket(protocol + window.location.host + '/ws');
+
+        // Hooking Global Native Browser Event Listeners
+        socket.onopen = function() {
+            console.log("🚀 TCP Pipe Open: Native WebSocket connected successfully!");
+            fetchAndDisplayRooms(false); 
+        };
+
+        socket.onmessage = function(event) {
+            onMessageReceived(event.data);
+        };
+
+        socket.onclose = function(e) {
+            console.warn("⚠️ WebSocket Connection Closed. Attempting reconnecting strategy...", e.reason);
+        };
+
+        socket.onerror = function(err) {
+            console.error("❌ Critical WebSocket Core Error:", err);
+        };
+
     } else {
         window.location.href = '/login';
     }
 
-    
-
-    // Window click event handler to auto-close dynamic dropdowns
+    // Dropdown close handler
     window.addEventListener('click', function(e) {
         const dropdown = document.getElementById('header-context-dropdown');
         if (dropdown && !e.target.matches('.fa-ellipsis-vertical')) {
@@ -30,15 +47,15 @@ window.onload = function () {
     });
 };
 
-function onConnected() { 
-    fetchAndDisplayRooms(false); 
-    stompClient.subscribe(`/topic/user/${username}`, function(payload) {
-        console.log("🔔 Ding! Naya room update hua hai.");
-        fetchAndDisplayRooms(false);
-    });
+// Helper function: DM Rooms ke liye name calculate karne ke liye
+function getRoomDisplayName(roomName) {
+    if (roomName && roomName.includes('_')) {
+        let users = roomName.split('_');
+        // Agar mera naam phla element h to dusra dikhao, nahi to phla dikhao
+        return users[0].toLowerCase() === username.toLowerCase() ? users[1] : users[0];
+    }
+    return roomName; // Group chats ke liye default original name
 }
-
-function onError(error) { console.error('WebSocket Error:', error); }
 
 function fetchAndDisplayRooms(autoJoin = false) {
     fetch('/api/rooms')
@@ -48,13 +65,17 @@ function fetchAndDisplayRooms(autoJoin = false) {
             listDiv.innerHTML = ''; 
             rooms.forEach(room => {
                 roomDetailsCache[room.name] = room; 
-                let initial = room.name.charAt(0).toUpperCase();
+                
+                // 🎯 SOLUTION: Dynamic Display Name Rule Injection
+                let displayName = getRoomDisplayName(room.name);
+                let initial = displayName.charAt(0).toUpperCase();
+                
                 listDiv.innerHTML += `
                     <div class="chat-list-item" id="btn-${room.name}" onclick="openChannel('${room.name}')">
                         <div class="chat-avatar">${initial}</div>
                         <div class="chat-info">
                             <div class="chat-row">
-                                <span class="chat-name">${room.name}</span>
+                                <span class="chat-name">${displayName}</span>
                                 <span class="chat-time">Active</span>
                             </div>
                             <div class="chat-row">
@@ -93,8 +114,10 @@ function openChannel(roomName) {
     document.getElementById('placeholder').style.display = 'none';
     document.getElementById('chat-main-area').style.display = 'flex';
     
-    document.getElementById('current-room-name').innerText = roomName;
-    document.getElementById('current-room-avatar').innerText = roomName.charAt(0).toUpperCase();
+    // 🎯 SOLUTION: Header title update dynamically
+    let displayName = getRoomDisplayName(roomName);
+    document.getElementById('current-room-name').innerText = displayName;
+    document.getElementById('current-room-avatar').innerText = displayName.charAt(0).toUpperCase();
 
     checkRoomUIState(roomDetailsCache[roomName]);
 
@@ -104,23 +127,54 @@ function openChannel(roomName) {
 
     document.getElementById('messageArea').innerHTML = '';
 
-    if (currentSubscription) currentSubscription.unsubscribe();
-    currentSubscription = stompClient.subscribe(`/topic/${currentRoom}`, onMessageReceived);
-
+    // Framework level clean extraction done here (No unsubscribe needed)
     loadHistory(currentRoom);
 }
 
 function sendMessage() {
     var messageContent = document.querySelector('#message').value.trim();
-    if (messageContent && stompClient && currentRoom) {
-        var chatMessage = { sender: username, content: messageContent, type: 'CHAT' };
-        stompClient.send(`/app/chat/${currentRoom}/sendMessage`, {}, JSON.stringify(chatMessage));
+    if (messageContent && socket && socket.readyState === WebSocket.OPEN && currentRoom) {
+        
+        // Pure Native JSON Structure Wrapper
+        var chatMessage = { 
+            sender: username, 
+            content: messageContent, 
+            type: 'CHAT',
+            roomId: currentRoom // Explicit reference for native router mapping
+        };
+        
+        // 🚀 Native WebSocket Message Stream Injection
+        socket.send(JSON.stringify(chatMessage));
         document.querySelector('#message').value = '';
     }
 }
 
 function handleKeyPress(event) { if (event.key === "Enter") sendMessage(); }
-function onMessageReceived(payload) { displayMessage(JSON.parse(payload.body)); }
+
+function onMessageReceived(rawData) { 
+    try {
+        let message = JSON.parse(rawData);
+        
+        // Global Broadcast Handling (Naya Room Status Trigger)
+        if (message.type === 'SYSTEM' && message.content.includes("initialized by")) {
+            fetchAndDisplayRooms(false);
+            return;
+        }
+
+        // 🛡️ SECURITY OVERRIDE & CHECK: Sirf usi message ko show karo jiska panel active hai
+        if (currentRoom === message.roomId) {
+            displayMessage(message);
+        } else {
+            console.log(`📩 Background Packet optimization caught message for room: ${message.roomId}`);
+            // Agar piche kisi room mein live notification chahiha to sidebar sync kardo
+            if (message.type === 'SYSTEM' || message.type === 'LEAVE_EVENT') {
+                fetchAndDisplayRooms(false);
+            }
+        }
+    } catch(err) {
+        console.error("Error parsing native text message payload packet:", err);
+    }
+}
 
 function displayMessage(message) {
     var messageArea = document.querySelector('#messageArea');
@@ -131,7 +185,7 @@ function displayMessage(message) {
         var text = message.type === 'JOIN' ? ' joined' : ' left';
         messageRow.innerHTML = `<span>${message.sender}${text}</span>`;
     } 
-   else if (message.type === 'LEAVE_EVENT') {
+    else if (message.type === 'LEAVE_EVENT') {
         let leaver = message.content.split(' ')[0];
         let isMe = leaver === username;
         let leaveText = isMe ? "You left this chat." : `${leaver} has left the room.`;
@@ -140,7 +194,6 @@ function displayMessage(message) {
         const blockedArea = document.getElementById('blocked-area');
         const activeActions = document.getElementById('active-chat-actions');
         
-        // Real-time mein 24 ghante calculate karo
         let expiryTime = new Date();
         expiryTime.setHours(expiryTime.getHours() + 24);
         let timeString = expiryTime.toLocaleString('en-IN', { 
@@ -151,7 +204,6 @@ function displayMessage(message) {
             inputArea.style.display = 'none';
             blockedArea.style.display = 'block';
             
-            // HTML Alert Box Inject
             blockedArea.innerHTML = `
                 <div style="font-size: 16px;">${leaveText}</div>
                 <div style="font-size: 13px; color: #fca5a5; margin-top: 6px; font-weight: normal;">
@@ -161,36 +213,28 @@ function displayMessage(message) {
             if(activeActions) activeActions.style.display = 'none';
         }
 
-        // Cache update
         if(roomDetailsCache[message.roomId]) {
             roomDetailsCache[message.roomId].requestStatus = 'CLOSED';
             roomDetailsCache[message.roomId].leftBy = leaver;
-            roomDetailsCache[message.roomId].closedAt = new Date().toISOString(); // Local cache mein bhi time dal diya
+            roomDetailsCache[message.roomId].closedAt = new Date().toISOString();
         }
         
-        // Chat bubble system message
         messageRow.className = 'message-row message-system';
         messageRow.innerHTML = `<span style="background: #7f1d1d; border: 1px solid #ef4444; padding: 6px 16px; border-radius: 20px; color: #fca5a5; font-size: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
             <b>${leaveText}</b> <br> <i class="fa-regular fa-clock"></i> Deletes on ${timeString}
         </span>`;
     }
-    // displayMessage function ke andar jahan baaki if-else hain:
-
     else if (message.type === 'TYPING') {
-        // Agar main khud hi type kar raha hu, toh khud ko mat dikhao
         if (message.sender === username) return;
 
-        // Header mein typing text dikhao
-        const typingIndicator = document.getElementById('typing-status'); // HTML mein ek chhota span bana lena
+        const typingIndicator = document.getElementById('typing-status'); 
         if (typingIndicator) {
             typingIndicator.innerText = "typing...";
-            typingIndicator.style.color = "#22c55e"; // Green color
+            typingIndicator.style.color = "#22c55e"; 
             typingIndicator.style.display = "block";
 
-            // Purana timer clear karo taaki lagatar type karne par gayab na ho
             clearTimeout(window.typingTimer);
 
-            // Naya timer lagao ki 2 second baad gayab ho jaye
             window.typingTimer = setTimeout(() => {
                 typingIndicator.style.display = "none";
             }, 2000);
@@ -212,7 +256,7 @@ function displayMessage(message) {
                     if (currentRoom) checkRoomUIState(roomDetailsCache[currentRoom]);
                 });
         }
-    }// if room rejected then delete  
+    }
     else if (message.type === 'ROOM_DELETED') {
         if (currentRoom === message.roomId) {
             currentRoom = null;
@@ -235,7 +279,6 @@ function displayMessage(message) {
                 </span> 
             </div>
         `;
-        // typing indicator
         const typingIndicator = document.getElementById('typing-status');
         if (typingIndicator) typingIndicator.style.display = "none";
         clearTimeout(window.typingTimer);
@@ -245,13 +288,10 @@ function displayMessage(message) {
     messageArea.scrollTop = messageArea.scrollHeight;
 }
 
-// typing status
 function handleTypingEvent() {
-    if (!currentRoom || !stompClient) return;
+    if (!currentRoom || !socket || socket.readyState !== WebSocket.OPEN) return;
 
     let timeNow = new Date().getTime();
-    
-    // Agar pichle signal ko bheje hue 2 second se zyada ho gaye hain, tabhi naya signal bhejo
     if (timeNow - lastTypingTime > TYPING_TIMER_LENGTH) {
         lastTypingTime = timeNow;
         
@@ -261,8 +301,7 @@ function handleTypingEvent() {
             roomId: currentRoom 
         };
         
-        // Backend ke same endpoint par bhejna hai, backend type check karke filter kar lega
-        stompClient.send(`/app/chat/${currentRoom}/sendMessage`, {}, JSON.stringify(typingMessage));
+        socket.send(JSON.stringify(typingMessage));
     }
 }
 
@@ -271,6 +310,8 @@ function loadHistory(roomName) {
         .then(response => response.json())
         .then(messages => {
             messages.forEach(message => {
+                // Backend schema updates room ID tracking perfectly
+                message.roomId = roomName; 
                 displayMessage(message);
             });
         }).catch(error => console.error("History load error:", error));
@@ -334,7 +375,6 @@ function startChatFromSearch(targetUser) {
     })
     .then(response => response.json())
     .then(room => {
-        // reload
         roomDetailsCache[room.name] = room;
         fetchAndDisplayRooms(false);
         setTimeout(() => openChannel(room.name), 200);
@@ -388,17 +428,14 @@ function checkRoomUIState(roomInfo) {
         let leaver = roomInfo.leftBy === username ? 'You' : roomInfo.leftBy;
         let leaveText = leaver === 'You' ? "You left this chat." : `${leaver} has left the room.`;
         
-        // ⏱️ 24-Hour Timer Logic
         if (roomInfo.closedAt) {
             let closedTime = new Date(roomInfo.closedAt);
-            closedTime.setHours(closedTime.getHours() + 24); // 24 ghante aage ka time
+            closedTime.setHours(closedTime.getHours() + 24); 
 
-            // Time ko sundar format mein dikhane ke liye (e.g., 04 Jun, 05:30 PM)
             let timeString = closedTime.toLocaleString('en-IN', { 
                 day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true 
             });
 
-            // UI mein HTML inject karo
             blockedArea.innerHTML = `
                 <div style="font-size: 16px;">${leaveText}</div>
                 <div style="font-size: 13px; color: #fca5a5; margin-top: 6px; font-weight: normal;">
@@ -433,9 +470,8 @@ function checkRoomUIState(roomInfo) {
     }
 }
 
-
 function toggleContextDropdown(event) {
-    event.stopPropagation(); // Event bubbling stop karo
+    event.stopPropagation(); 
     if (!currentRoom) return;
 
     const dropdown = document.getElementById('header-context-dropdown');
@@ -443,24 +479,20 @@ function toggleContextDropdown(event) {
     
     if (!dropdown || !roomInfo) return;
 
-    // Toggle logic condition
     if (dropdown.style.display === 'block') {
         dropdown.style.display = 'none';
         return;
     }
 
-    // Dynamic Context-Aware Action Injection
     dropdown.innerHTML = '';
     
     if (roomInfo.requestStatus === 'CLOSED' || roomInfo.requestStatus === 'REJECTED') {
-        // Condition 1: Agar already closed/rejected hai, toh delete permanent feature do
         dropdown.innerHTML = `
             <div class="danger-action" onclick="deleteRoomPermanently()">
                 <i class="fa-solid fa-trash-can"></i> Delete Room
             </div>
         `;
     } else {
-        // Condition 2: Active chat state mein normal leave option do
         dropdown.innerHTML = `
             <div class="danger-action" onclick="leaveChat()">
                 <i class="fa-solid fa-right-from-bracket"></i> Leave Chat
@@ -482,7 +514,6 @@ function leaveChat() {
     .then(response => { 
         if (!response.ok) throw new Error("Failed to leave chat");
         
-        // Frontend memory synchronization cache update
         if(roomDetailsCache[currentRoom]) {
             roomDetailsCache[currentRoom].requestStatus = 'CLOSED';
             roomDetailsCache[currentRoom].leftBy = username;
@@ -498,7 +529,7 @@ function leaveChat() {
 
 function deleteRoomPermanently() {
     if (!currentRoom) return;
-    if (!confirm("Danger! This will permanently wipe out the room and all its cascading messages from database. Proceed?")) return;
+    if (!confirm("Danger! This will permanently wipe out the room from your view. Proceed?")) return;
 
     fetch(`/api/rooms/${currentRoom}/leave`, {
         method: 'PUT',
