@@ -23,24 +23,24 @@ public class AuthController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    // IF someone hit this url it will be redirect to registeration page
+
     @GetMapping("/register")
     public String showRegistrationForm() {
         return "register"; 
     }
-    // if someone hit it then it will redirect to login page
+    
 @GetMapping("/login")
 public String loginPage() {
     return "login";     
 }
-    // Registeration form filled by user then check the validation
+
    @PostMapping("/register")
     public String processRegistration(@RequestParam String username,
                                       @RequestParam String password,
                                       @RequestParam AccountType accountType,
                                       RedirectAttributes redirectAttributes) {
 
-        // Check 1: Kya username pehle se occupied hai?
+        
         if (userRepository.findByUsername(username).isPresent()) {
             redirectAttributes.addFlashAttribute("error", "Username is already taken. Try another one!");
             return "redirect:/register"; 
@@ -56,7 +56,7 @@ public String loginPage() {
 
         userRepository.save(newUser);
 
-        // Once account created then redirect to login page
+        
         return "redirect:/login?success";
 }
 }

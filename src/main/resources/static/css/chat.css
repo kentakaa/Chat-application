@@ -35,6 +35,7 @@ body {
   font-family:
     "Inter", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; /* Inter gives a SaaS vibe */
   height: 100vh;
+  height: 100dvh; /* mobile address-bar collapse/expand safe height */
   width: 100vw;
   display: flex;
   overflow: hidden;
@@ -378,6 +379,13 @@ body {
   height: 42px;
   background-color: var(--accent-primary);
   border: none;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 600;
+  font-size: 16px;
+  flex-shrink: 0;
 }
 .chat-header-text h2 {
   font-size: 16px;
@@ -610,4 +618,148 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
+}
+
+/* =========================================
+   7. RESPONSIVE BREAKPOINTS (NEW)
+   =========================================
+   Mobile-first chat-app pattern (jaise WhatsApp Web):
+   - Tablet (<=1024px): sidebar narrow ho jaata hai
+   - Mobile (<=768px): sidebar ya chat-main, ek time pe sirf ek dikhega
+     Iske liye JS me jab kisi chat list item pe click ho, .chat-main pe
+     class "show-on-mobile" add karo. Jab back button dabe, remove karo.
+   ========================================= */
+
+/* ---- Tablet ---- */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 300px;
+  }
+  .message-area {
+    padding: 20px 30px;
+  }
+  .message-bubble {
+    max-width: 70%;
+  }
+}
+
+/* ---- Mobile / Small Tablet ---- */
+@media (max-width: 768px) {
+  body {
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* App nav rail thoda compact, icons ke labels hide */
+  .app-nav-rail {
+    width: 56px;
+    padding: 12px 0;
+  }
+  .nav-icon {
+    font-size: 18px;
+    padding: 10px;
+  }
+  .nav-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+
+  /* Sidebar full width le leta hai jab chat open nahi hai */
+  .sidebar {
+    width: 100%;
+    position: relative;
+  }
+
+  /* Chat area by default hidden rahega mobile pe,
+     JS se "show-on-mobile" class add karne par dikhega */
+  .chat-main {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh; /* mobile browser ke address-bar collapse/expand ko handle karta hai */
+    z-index: 20;
+  }
+  .chat-main.show-on-mobile {
+    display: flex;
+  }
+
+  /* Jab chat khuli ho to sidebar ko peeche bhej do (optional safety) */
+  .sidebar.hide-on-mobile {
+    display: none;
+  }
+
+  .chat-header {
+    padding: 12px 15px;
+  }
+  .chat-header-avatar {
+    width: 36px;
+    height: 36px;
+  }
+  /* Back button mobile pe dikhega, desktop pe HTML/inline style se hidden hai */
+  .mobile-back-btn {
+    display: inline-block !important;
+  }
+
+  .message-area {
+    padding: 15px 16px;
+    gap: 10px;
+  }
+  .message-bubble {
+    max-width: 80%;
+    font-size: 14px;
+  }
+
+  .input-area {
+    padding: 10px 15px;
+    gap: 10px;
+  }
+  .input-area input {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+  .send-btn,
+  .icon-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 16px;
+  }
+
+  .placeholder-screen {
+    display: none; /* mobile pe yeh screen ki zaroorat nahi, list hi dikhti rahegi */
+  }
+}
+
+/* ---- Very small phones ---- */
+@media (max-width: 420px) {
+  .sidebar-header h2 {
+    font-size: 17px;
+  }
+  .search-container {
+    padding: 0 12px 10px 12px;
+  }
+  .group-list {
+    padding: 6px 6px;
+  }
+  .chat-list-item {
+    padding: 10px;
+    gap: 10px;
+  }
+  .chat-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+  .message-bubble {
+    max-width: 88%;
+    font-size: 13.5px;
+  }
+  #request-action-area button {
+    padding: 8px 16px;
+    font-size: 13px;
+    margin: 0 5px;
+  }
 }

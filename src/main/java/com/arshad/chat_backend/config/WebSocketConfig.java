@@ -13,14 +13,14 @@
 
         private final ChatWebSocketHandler chatWebSocketHandler;
 
-        // Constructor Injection ke zariye custom handler ko configure kiya
+        
         public WebSocketConfig(ChatWebSocketHandler chatWebSocketHandler) {
             this.chatWebSocketHandler = chatWebSocketHandler;
         }
 
         @Override
         public void registerWebSocketHandlers(@NonNull WebSocketHandlerRegistry registry) {
-            registry.addHandler(chatWebSocketHandler, "/ws") // Connection endpoint: ws://localhost:8080/ws
+            registry.addHandler(chatWebSocketHandler, "/ws")    
                     .setAllowedOriginPatterns("*") // cors
                     .addInterceptors(new HttpSessionHandshakeInterceptor()); 
         }

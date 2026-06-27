@@ -44,6 +44,15 @@
         .context-dropdown .danger-action:hover {
             background-color: #7f1d1d;
         }
+
+        /* ===== MOBILE BACK BUTTON (NEW) =====
+           Desktop pe hidden rahega, mobile breakpoint pe
+           style-responsive.css ki media query isko dikhayegi */
+        .mobile-back-btn {
+            display: none;
+            margin-right: 8px;
+            font-size: 18px;
+        }
     </style>
 </head>
 <body>
@@ -65,7 +74,7 @@
         </div>
     </nav>
 
-    <div class="sidebar">
+    <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h2>Chats</h2>
             <div class="header-actions">
@@ -90,7 +99,7 @@
         <div class="group-list" id="dynamic-room-list"></div>
     </div>
 
-    <main class="chat-main">
+    <main class="chat-main" id="chat-main">
         <div class="placeholder-screen" id="placeholder">
             <div class="action-buttons-container">
                 <div class="action-item">
@@ -112,6 +121,8 @@
             
             <div class="chat-header">
                 <div class="chat-header-info">
+                    <!-- NEW: mobile-only back button, JS me goBackToList() call hota hai -->
+                    <i class="fa-solid fa-arrow-left mobile-back-btn icon-btn" onclick="goBackToList()" title="Back to chats"></i>
                     <div class="chat-header-avatar" id="current-room-avatar">#</div>
                     <div class="chat-header-text">
                         <h2 id="current-room-name">general</h2>

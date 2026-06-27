@@ -1,5 +1,7 @@
 package com.arshad.chat_backend.dto;
 
+
+
 public class RoomLeaveEvent {
     private final String roomName;
     private final String payload;

@@ -20,6 +20,8 @@ D:\Desktop\pr projects\chat-backend\src\main\java\com\arshad\chat_backend\reposi
 D:\Desktop\pr projects\chat-backend\src\main\java\com\arshad\chat_backend\repository\RoomRepository.java
 D:\Desktop\pr projects\chat-backend\src\main\java\com\arshad\chat_backend\repository\UserRepository.java
 D:\Desktop\pr projects\chat-backend\src\main\java\com\arshad\chat_backend\service\CustomUserDetailsService.java
+D:\Desktop\pr projects\chat-backend\src\main\java\com\arshad\chat_backend\service\InMemoryPresenceServiceImpl.java
+D:\Desktop\pr projects\chat-backend\src\main\java\com\arshad\chat_backend\service\PresenceService.java
 D:\Desktop\pr projects\chat-backend\src\main\java\com\arshad\chat_backend\service\RoomService.java
 D:\Desktop\pr projects\chat-backend\src\main\java\com\arshad\chat_backend\service\UserService.java
 D:\Desktop\pr projects\chat-backend\src\main\java\com\arshad\chat_backend\task\RoomCleanupScheduler.java

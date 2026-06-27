@@ -2,9 +2,10 @@ package com.arshad.chat_backend.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher; // NAYA: Decoupled events ke liye
+import org.springframework.context.ApplicationEventPublisher; 
 import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,10 +34,13 @@ public class RoomController {
     private RoomService roomService;
 
     @Autowired
-    private ApplicationEventPublisher eventPublisher; // Purely decoupled
+    private ApplicationEventPublisher eventPublisher; 
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    // ==========================================
+    // 1. GET ALL ROOMS (Fixed Stream Filter)
+    // ==========================================
     @GetMapping
     public ResponseEntity<?> getUserRooms(Principal principal) {
         if (principal == null) return ResponseEntity.status(401).body("Unauthorized access.");
@@ -45,9 +49,10 @@ public class RoomController {
             List<ChatRoom> allMyRooms = roomRepository.findByMembersContaining(loggedInUser);
             List<ChatRoom> visibleRooms = allMyRooms.stream()
                 .filter(room -> {
-                    boolean isInitiator = loggedInUser.equalsIgnoreCase(room.getInitiator());
-                    if (isInitiator && room.isDeletedByInitiator()) return false;
-                    if (!isInitiator && room.isDeletedByReceiver()) return false;
+                    // 🎯 SENIOR FIX: Agar user ka naam deletedBy list me hai, toh usko chat mat dikhao
+                    if (room.getDeletedBy() != null && room.getDeletedBy().contains(loggedInUser)) {
+                        return false; 
+                    }
                     return true;
                 })
                 .collect(Collectors.toList());
@@ -58,11 +63,14 @@ public class RoomController {
         }
     }
 
+    // ==========================================
+    // 2. CREATE ROOM
+    // ==========================================
     @PostMapping
     public ResponseEntity<?> createRoom(@RequestBody ChatRoom room, Principal principal) {
         if (principal == null) return ResponseEntity.status(401).body("Unauthorized access.");
         try {
-            ChatRoom savedRoom = roomService.createGroupAndBroadcast(room, principal.getName());
+            ChatRoom savedRoom = roomService.createRoomAndBroadcast(room, principal.getName());
             return ResponseEntity.ok(savedRoom);
         } catch (Exception e) {
             log.error("CRITICAL: Failed to create room", e);
@@ -70,6 +78,9 @@ public class RoomController {
         }
     }
 
+    // ==========================================
+    // 3. UPDATE STATUS
+    // ==========================================
     @PutMapping("/{roomName}/status")
     public ResponseEntity<?> updateStatus(
             @PathVariable String roomName, 
@@ -84,6 +95,10 @@ public class RoomController {
         }
     }
 
+    
+    // ==========================================
+    // 4. LEAVE / DELETE ROOM (Strictly for DMs )
+    // ==========================================
     @PutMapping("/{roomName}/leave")
     public ResponseEntity<?> leaveRoom(@PathVariable String roomName, Principal principal) {
         if (principal == null) return ResponseEntity.status(401).body("Unauthorized");
@@ -92,49 +107,56 @@ public class RoomController {
         ChatRoom room = roomRepository.findByName(roomName)
                 .orElseThrow(() -> new RuntimeException("Room not found!"));
 
-        boolean isInitiator = room.getInitiator() != null && room.getInitiator().equalsIgnoreCase(currentUser);
+        // 🛑 STRICT BOUNDARY: Group chat logic blocked for future implementation
+        if (room.isGroupChat()) {
+            // Tum future me iska logic alag API endpoint (e.g., /api/groups/{id}/leave) me likh sakte ho
+            return ResponseEntity.status(501).body("Group chat leave logic will be implemented later.");
+        }
+
+        // 👇 YAHAN SE NEECHE SIRF DM (1-on-1) KA LOGIC HAI 👇
 
         if ("REJECTED".equalsIgnoreCase(room.getRequestStatus()) || "CLOSED".equalsIgnoreCase(room.getRequestStatus())) {
-            if (isInitiator) {
-                room.setDeletedByInitiator(true);
-            } else {
-                room.setDeletedByReceiver(true);
+            
+            if (room.getDeletedBy() == null) {
+                room.setDeletedBy(new ArrayList<>());
+            }
+            if (!room.getDeletedBy().contains(currentUser)) {
+                room.getDeletedBy().add(currentUser);
             }
 
-            if (room.isDeletedByInitiator() && room.isDeletedByReceiver()) {
+            // Kyunki ye DM hai, array me humesha max 2 hi log honge
+            boolean bothDeleted = room.getMembers().stream()
+                                     .allMatch(member -> room.getDeletedBy().contains(member));
+
+            if (bothDeleted) {
                 chatRepository.deleteByRoomId(roomName); 
                 roomRepository.deleteByName(roomName);
-                log.info("MUTUAL CONSENT MET: Room '{}' permanently wiped.", roomName);
+                log.info("MUTUAL CONSENT MET: DM '{}' permanently wiped.", roomName);
             } else {
                 roomRepository.save(room);
             }
-            return ResponseEntity.ok().body("Room deleted from your view.");
+            return ResponseEntity.ok().body("DM deleted from your view.");
         }
 
         room.setRequestStatus("CLOSED");
-        room.setLeftBy(currentUser);
         if (room.getClosedAt() == null) {
             room.setClosedAt(java.time.LocalDateTime.now());
         }
         roomRepository.save(room);
 
-        // System Signal Package
         ChatMessage leaveSignal = new ChatMessage();
         leaveSignal.setRoomId(roomName);
         leaveSignal.setSender("SYSTEM");
-        leaveSignal.setContent(currentUser + " has left the room.");
+        leaveSignal.setContent(currentUser + " has left the chat.");
         leaveSignal.setType("LEAVE_EVENT"); 
 
         try {
             String jsonPayload = objectMapper.writeValueAsString(leaveSignal);
-            
-            // 🔥 PRINCIPLE APPROACH: Fire and Forget Event. HTTP thread is now free!
             eventPublisher.publishEvent(new RoomLeaveEvent(roomName, jsonPayload));
-            log.info("EVENT PUBLISHED: Decoupled leave event for room '{}'", roomName);
         } catch (Exception e) {
             log.error("Failed to publish leave event for room '{}'", roomName, e);
         }
 
-        return ResponseEntity.ok().body("Room left successfully");
+        return ResponseEntity.ok().body("Chat left successfully");
     }
 }

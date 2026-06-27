@@ -19,13 +19,13 @@ public class ChatController {
     @Autowired
     private ChatRepository chatRepository;
 
-    // root
+    // root after succesfull login
     @GetMapping("/")
     public String accountDashboard(Model model, Principal principal) {
         if (principal != null) {
             model.addAttribute("username", principal.getName());
         }
-        return "account"; // account.html (Vanilla Thymeleaf)
+        return "account"; // account.html (Vanilla Thymeleaf RN)
     }
 
     
