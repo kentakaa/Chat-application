@@ -25,6 +25,9 @@ import lombok.extern.slf4j.Slf4j;
 public class RoomController {
 
     @Autowired
+    private com.arshad.chat_backend.config.ChatWebSocketHandler chatWebSocketHandler;
+
+    @Autowired
     private ChatRepository chatRepository;
 
     @Autowired
@@ -52,7 +55,7 @@ public class RoomController {
                     // 🎯 SENIOR FIX: Agar user ka naam deletedBy list me hai, toh usko chat mat dikhao
                     if (room.getDeletedBy() != null && room.getDeletedBy().contains(loggedInUser)) {
                         return false; 
-                    }
+                    }   
                     return true;
                 })
                 .collect(Collectors.toList());
@@ -151,9 +154,10 @@ public class RoomController {
 
         try {
             String jsonPayload = objectMapper.writeValueAsString(leaveSignal);
-            eventPublisher.publishEvent(new RoomLeaveEvent(roomName, jsonPayload));
+            // eventPublisher hata kar direct broadcast maar
+            chatWebSocketHandler.broadcastToRoom(roomName, jsonPayload);
         } catch (Exception e) {
-            log.error("Failed to publish leave event for room '{}'", roomName, e);
+            log.error("Failed to broadcast leave event for room '{}'", roomName, e);
         }
 
         return ResponseEntity.ok().body("Chat left successfully");
