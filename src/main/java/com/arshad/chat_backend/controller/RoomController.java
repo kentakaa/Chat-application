@@ -113,7 +113,6 @@ public class RoomController {
             return ResponseEntity.status(501).body("Group chat leave logic will be implemented later.");
         }
 
-        // 👇 YAHAN SE NEECHE SIRF DM (1-on-1) KA LOGIC HAI 👇
 
         if ("REJECTED".equalsIgnoreCase(room.getRequestStatus()) || "CLOSED".equalsIgnoreCase(room.getRequestStatus())) {
             
@@ -124,7 +123,7 @@ public class RoomController {
                 room.getDeletedBy().add(currentUser);
             }
 
-            // Kyunki ye DM hai, array me humesha max 2 hi log honge
+            
             boolean bothDeleted = room.getMembers().stream()
                                      .allMatch(member -> room.getDeletedBy().contains(member));
 
