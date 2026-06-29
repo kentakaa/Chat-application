@@ -41,9 +41,7 @@ public class RoomController {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // ==========================================
-    // 1. GET ALL ROOMS (Fixed Stream Filter)
-    // ==========================================
+
     @GetMapping
     public ResponseEntity<?> getUserRooms(Principal principal) {
         if (principal == null) return ResponseEntity.status(401).body("Unauthorized access.");
@@ -66,9 +64,6 @@ public class RoomController {
         }
     }
 
-    // ==========================================
-    // 2. CREATE ROOM
-    // ==========================================
     @PostMapping
     public ResponseEntity<?> createRoom(@RequestBody ChatRoom room, Principal principal) {
         if (principal == null) return ResponseEntity.status(401).body("Unauthorized access.");
@@ -81,9 +76,6 @@ public class RoomController {
         }
     }
 
-    // ==========================================
-    // 3. UPDATE STATUS
-    // ==========================================
     @PutMapping("/{roomName}/status")
     public ResponseEntity<?> updateStatus(
             @PathVariable String roomName, 
@@ -99,9 +91,7 @@ public class RoomController {
     }
 
     
-    // ==========================================
-    // 4. LEAVE / DELETE ROOM (Strictly for DMs )
-    // ==========================================
+  
     @PutMapping("/{roomName}/leave")
     public ResponseEntity<?> leaveRoom(@PathVariable String roomName, Principal principal) {
         if (principal == null) return ResponseEntity.status(401).body("Unauthorized");
