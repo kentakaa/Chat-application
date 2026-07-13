@@ -7,9 +7,9 @@
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>3.5.14</version>
 		<relativePath/> <!-- lookup parent from repository -->
-	</parent>
-	<groupId>com.arshad</groupId>
-	<artifactId>chat-backend</artifactId>
+		</parent>
+		<groupId>com.arshad</groupId>
+		<artifactId>chat-backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name/>
 	<description/>
