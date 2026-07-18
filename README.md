@@ -26,6 +26,7 @@ Most tutorial-style chat apps rely on STOMP over WebSocket and broadcast message
 - Database: MongoDB
 - Build tool: Maven
 - Frontend: Thymeleaf
+- Api testing: Thunderclient
 
 ## Architecture Notes
 
