@@ -38,7 +38,7 @@ Most tutorial-style chat apps rely on STOMP over WebSocket and broadcast message
 
 - Group moderation rules are still being expanded
 - Test coverage is partial; unit and integration tests are being added incrementally
-- Deployment/CI pipeline is not yet set up
+- Deployed but in testing
 - API documentation is not yet published
 
 ## Running Locally
