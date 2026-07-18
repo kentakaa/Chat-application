@@ -558,7 +558,7 @@ function startChatFromSearch(targetUser) {
         if (!currentRoom) return;
         if (!confirm("Are you sure you want to leave this chat? You won't be able to send messages.")) return;
 
-        fetch(`/api/rooms/${currentRoom}/leave`, {
+        fetch(`/api/rooms/${currentRoom}/leave`, {  
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' }
         })

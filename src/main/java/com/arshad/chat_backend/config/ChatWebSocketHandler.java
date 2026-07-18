@@ -162,7 +162,7 @@ public void afterConnectionEstablished(@NonNull WebSocketSession session) throws
         }
         log.info("Connection closed. Remaining online users {}", userSessions.size());
     }
-
+// for group messaging
    public void broadcastToRoom(String roomId, @NonNull String payload) throws IOException {
     // 1. Database se room uthao (ya cache se agar tumne cache use kiya hai)
     ChatRoom room = roomRepository.findByName(roomId)
