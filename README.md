@@ -19,6 +19,28 @@ Most tutorial-style chat apps rely on STOMP over WebSocket and broadcast message
 - MongoDB schema designed to support both direct messages and group chats through a single, unified collection
 - Distraction-free, minimal UI
 
+## Monitoring & Observability
+
+The application includes a basic monitoring stack using **Spring Boot Actuator, Micrometer, Prometheus, and Grafana**.
+
+### Monitoring Architecture
+
+```text
+Spring Boot Application
+        │
+        ├── Actuator
+        │
+        └── Micrometer
+                │
+                ▼
+      /actuator/prometheus
+                │
+                ▼
+           Prometheus
+                │
+                ▼
+             Grafana
+
 ## Tech Stack
 
 - Backend: Java, Spring Boot, Spring Security, Spring MVC
