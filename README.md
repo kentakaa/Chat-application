@@ -40,6 +40,7 @@ Spring Boot Application
                 │
                 ▼
              Grafana
+```
 
 ## Tech Stack
 
