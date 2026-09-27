@@ -2,13 +2,13 @@ package com.arshad.chat_backend.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher; 
+
 import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
+import java.util.Map;
 import com.arshad.chat_backend.entity.ChatMessage;
 import com.arshad.chat_backend.entity.ChatRoom;
 import com.arshad.chat_backend.repository.ChatRepository;
@@ -16,6 +16,7 @@ import com.arshad.chat_backend.repository.RoomRepository;
 import com.arshad.chat_backend.service.RoomService;
 import com.arshad.chat_backend.dto.RoomLeaveEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,27 +37,25 @@ public class RoomController {
     @Autowired
     private RoomService roomService;
 
-    @Autowired
-    private ApplicationEventPublisher eventPublisher; 
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
+    private final ObjectMapper objectMapper = new ObjectMapper()
+    .registerModule(new JavaTimeModule());
 
     @GetMapping
     public ResponseEntity<?> getUserRooms(Principal principal) {
-        if (principal == null) return ResponseEntity.status(401).body("Unauthorized access.");
+        if (principal == null)
+            return ResponseEntity.status(401).body("Unauthorized access.");
         String loggedInUser = principal.getName();
         try {
             List<ChatRoom> allMyRooms = roomRepository.findByMembersContaining(loggedInUser);
             List<ChatRoom> visibleRooms = allMyRooms.stream()
-                .filter(room -> {
-                    // 🎯 SENIOR FIX: Agar user ka naam deletedBy list me hai, toh usko chat mat dikhao
-                    if (room.getDeletedBy() != null && room.getDeletedBy().contains(loggedInUser)) {
-                        return false; 
-                    }   
-                    return true;
-                })
-                .collect(Collectors.toList());
+                    .filter(room -> {
+
+                        if (room.getDeletedBy() != null && room.getDeletedBy().contains(loggedInUser)) {
+                            return false;
+                        }
+                        return true;
+                    })
+                    .collect(Collectors.toList());
             return ResponseEntity.ok(visibleRooms);
         } catch (Exception e) {
             log.error("CRITICAL: Failed to fetch rooms for user: {}", loggedInUser, e);
@@ -66,22 +65,27 @@ public class RoomController {
 
     @PostMapping
     public ResponseEntity<?> createRoom(@RequestBody ChatRoom room, Principal principal) {
-        if (principal == null) return ResponseEntity.status(401).body("Unauthorized access.");
+        if (principal == null)
+            return ResponseEntity.status(401).body("Unauthorized access.");
         try {
             ChatRoom savedRoom = roomService.createRoomAndBroadcast(room, principal.getName());
             return ResponseEntity.ok(savedRoom);
+        } catch (IllegalArgumentException e) {
+            log.warn("Room creation rejected by user {}: {}",principal.getName(), e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("message",e.getMessage()!=null?e.getMessage():"invalid room request"));
         } catch (Exception e) {
-            log.error("CRITICAL: Failed to create room", e);
-            return ResponseEntity.status(500).body("Internal Server Error");
+            log.error("Room creation failed", e);
+            return ResponseEntity.internalServerError().body(Map.of("message", "creation failed"));
         }
     }
 
     @PutMapping("/{roomName}/status")
     public ResponseEntity<?> updateStatus(
-            @PathVariable String roomName, 
-            @RequestBody com.arshad.chat_backend.dto.StatusUpdateRequest request, 
+            @PathVariable String roomName,
+            @RequestBody com.arshad.chat_backend.dto.StatusUpdateRequest request,
             Principal principal) {
-        if (principal == null) return ResponseEntity.status(401).body("Unauthorized");
+        if (principal == null)
+            return ResponseEntity.status(401).body("Unauthorized");
         try {
             var updatedRoom = roomService.updateRoomStatus(roomName, request.getRequestStatus(), principal.getName());
             return ResponseEntity.ok(updatedRoom);
@@ -90,25 +94,25 @@ public class RoomController {
         }
     }
 
-    
-  
     @PutMapping("/{roomName}/leave")
     public ResponseEntity<?> leaveRoom(@PathVariable String roomName, Principal principal) {
-        if (principal == null) return ResponseEntity.status(401).body("Unauthorized");
+        if (principal == null)
+            return ResponseEntity.status(401).body("Unauthorized");
         String currentUser = principal.getName();
 
         ChatRoom room = roomRepository.findByName(roomName)
                 .orElseThrow(() -> new RuntimeException("Room not found!"));
 
-        // 🛑 STRICT BOUNDARY: Group chat logic blocked for future implementation
+        
         if (room.isGroupChat()) {
-            // Tum future me iska logic alag API endpoint (e.g., /api/groups/{id}/leave) me likh sakte ho
+            // Tum future me iska logic alag API endpoint (e.g., /api/groups/{id}/leave) me
+            // likh sakte ho
             return ResponseEntity.status(501).body("Group chat leave logic will be implemented later.");
         }
 
+        if ("REJECTED".equalsIgnoreCase(room.getRequestStatus())
+                || "CLOSED".equalsIgnoreCase(room.getRequestStatus())) {
 
-        if ("REJECTED".equalsIgnoreCase(room.getRequestStatus()) || "CLOSED".equalsIgnoreCase(room.getRequestStatus())) {
-            
             if (room.getDeletedBy() == null) {
                 room.setDeletedBy(new ArrayList<>());
             }
@@ -116,12 +120,11 @@ public class RoomController {
                 room.getDeletedBy().add(currentUser);
             }
 
-            
             boolean bothDeleted = room.getMembers().stream()
-                                     .allMatch(member -> room.getDeletedBy().contains(member));
+                    .allMatch(member -> room.getDeletedBy().contains(member));
 
             if (bothDeleted) {
-                chatRepository.deleteByRoomId(roomName); 
+                chatRepository.deleteByRoomId(roomName);
                 roomRepository.deleteByName(roomName);
                 log.info("MUTUAL CONSENT MET: DM '{}' permanently wiped.", roomName);
             } else {
@@ -140,7 +143,7 @@ public class RoomController {
         leaveSignal.setRoomId(roomName);
         leaveSignal.setSender("SYSTEM");
         leaveSignal.setContent(currentUser + " has left the chat.");
-        leaveSignal.setType("LEAVE_EVENT"); 
+        leaveSignal.setType("LEAVE_EVENT");
 
         try {
             String jsonPayload = objectMapper.writeValueAsString(leaveSignal);

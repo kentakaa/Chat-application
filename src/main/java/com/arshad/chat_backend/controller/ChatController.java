@@ -36,10 +36,9 @@ public class ChatController {
         } else {
             return "redirect:/login";
         }
-        return "chat"; // chat.html (Vanilla Thymeleaf)
+        return "chat"; // 
     }
-// not production ready 
-    // 3. Chat History Endpoint: Puraane messages MongoDB se fetch karne ke liye
+
     @GetMapping("/api/history")
     @ResponseBody
     public List<ChatMessage> getChatHistory(@RequestParam(defaultValue = "general") String room) {

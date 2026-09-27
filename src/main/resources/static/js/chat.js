@@ -1,3 +1,5 @@
+
+
 var socket = null; 
 var username = window.CURRENT_USERNAME;
 var currentRoom = null;
@@ -94,8 +96,8 @@ function fetchAndDisplayRooms(autoJoin = false) {
                                 <span class="chat-name">${displayName}</span>
                                 <span class="chat-time">Active</span>
                             </div>
-                            <div class="chat-row">
-                                <span class="chat-name">${room.name}</span> </div>
+                            
+                                
                         </div>
                     </div>
                 `;
@@ -109,21 +111,30 @@ function fetchAndDisplayRooms(autoJoin = false) {
 
 
     function createNewRoom() {
-        var roomName = prompt("Enter group name:");
-        if (roomName && roomName.trim() !== "") {
+        const groupName = prompt("Enter group name:");
+        if (!groupName || !groupName.trim()) return;  
             fetch('/api/rooms', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: roomName })
-            }).then(response => {
-                if (!response.ok) throw new Error("Channel already exists");
-                return response.json();
-            }).then(newRoom => {
+                body: JSON.stringify({ 
+                    groupChat: true,
+                    displayName: groupName.trim(),
+                    members:[username]
+                 })
+            }).then(async response => {
+                const data = await response.json().catch(() => null);
+                if (!response.ok) {throw new Error(
+                    data?.message || `server error (${response.status})`
+                );
+            }
+            return data;
+        }
+        ).then(newRoom => {
                 fetchAndDisplayRooms(false);
                 setTimeout(() => openChannel(newRoom.name), 200);
             }).catch(err => alert(err.message));
         }
-    }
+    
 
     /**
  * @param {Object|string} room - Poora ChatRoom object ya sirf roomName string
@@ -155,7 +166,7 @@ function openChannel(room) {
     document.getElementById('current-room-name').innerText = displayName;
     document.getElementById('current-room-avatar').innerText = displayName ? displayName.charAt(0).toUpperCase() : '?';
 
-    // UI States (Like: Is chat blocked? Is it vanish mode?)
+
     checkRoomUIState(roomObject);
 
     // Sidebar Active Class toggle
@@ -413,7 +424,7 @@ function startChatFromSearch(targetUser) {
     // ... search inputs clear karne ka logic ...
 
     const payload = {
-        isGroupChat: false, // Ensure this matches ChatRoom entity field
+        groupChat: false, 
         members: [username, targetUser] 
     };
 
