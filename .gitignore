@@ -24,3 +24,4 @@ application-dev.yml
 .DS_Store
 Thumbs.db
 target/
+SESSION_CONTEXT.md

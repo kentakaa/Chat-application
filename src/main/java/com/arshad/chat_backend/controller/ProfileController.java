@@ -1,5 +1,5 @@
 package com.arshad.chat_backend.controller;
-
+import com.arshad.chat_backend.service.ContactService;
 import com.arshad.chat_backend.entity.User;
 import com.arshad.chat_backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +23,8 @@ public class ProfileController {
 
     @Autowired
     private UserRepository userRepository;
-// changed
+ @Autowired 
+ private ContactService contactService;
 
     @GetMapping("/profile")
     public String showProfilePage(Model model, Principal principal) {
@@ -45,9 +46,10 @@ public class ProfileController {
             // HTML par variables bhej rahe hain
             model.addAttribute("accountType", user.getAccountType());
             model.addAttribute("status", user.getStatus());
-            // Dummy logic for friends count (abhi ke liye)
-            model.addAttribute("friendsCount", 12);
-            model.addAttribute("requestsCount", 3);
+            Map<String,Long> counts = contactService.getCounts(loggedInUsername);
+            model.addAttribute("friendsCount", counts.getOrDefault("contacts", 0L));
+            model.addAttribute("requestsCount", counts.getOrDefault("requests", 0L));
+            
         }
 
         // Yeh "account.html" file ko render karega

@@ -11,6 +11,16 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/account.css}">
+    <style>
+        .contacts-inbox { width: 100%; margin-top: 18px; text-align: left; }
+        .contacts-inbox h4 { font-size: 13px; color: #888; margin: 14px 0 6px; }
+        .request-list { border: 1px solid #eee; border-radius: 10px; padding: 6px; }
+        .request-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; }
+        .req-btn { border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; color: #fff; }
+        .req-btn.accept { background: #2ecc71; }
+        .req-btn.reject { background: #e74c3c; }
+        .empty-note { color: #aaa; font-size: 13px; margin: 6px 10px; }
+    </style>
 </head>
 <body>
 
@@ -38,13 +48,31 @@
 
         <div class="network-stats">
             <div class="stat-box">
-                <span class="stat-number">12</span>
+                <span class="stat-number" th:text="${friendsCount}">0</span>
                 <span class="stat-label">Friends</span>
             </div>
             <div class="stat-divider"></div>
             <div class="stat-box">
-                <span class="stat-number">3</span>
+                <span class="stat-number" th:text="${requestsCount}">0</span>
                 <span class="stat-label">Requests</span>
+            </div>
+        </div>
+
+        <!-- CONTACTS INBOX -->
+        <div class="contacts-inbox">
+            <h4>Friend Requests</h4>
+            <div id="incomingList" class="request-list">
+                <p class="empty-note">Loading...</p>
+            </div>
+
+            <h4>Sent Requests</h4>
+            <div id="outgoingList" class="request-list">
+                <p class="empty-note">Loading...</p>
+            </div>
+
+            <h4>My Contacts</h4>
+            <div id="contactsList" class="request-list">
+                <p class="empty-note">Loading...</p>
             </div>
         </div>
 
