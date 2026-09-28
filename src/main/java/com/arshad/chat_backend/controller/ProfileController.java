@@ -34,7 +34,7 @@ public class ProfileController {
             return "redirect:/login";
         }
 
-        // 2. Logged-in user ka username nikalo
+        
         String loggedInUsername = principal.getName();
         model.addAttribute("username", loggedInUsername);
 
@@ -43,7 +43,7 @@ public class ProfileController {
 
         if (userOptional.isPresent()) {
             User user = userOptional.get();
-            // HTML par variables bhej rahe hain
+           
             model.addAttribute("accountType", user.getAccountType());
             model.addAttribute("status", user.getStatus());
             Map<String,Long> counts = contactService.getCounts(loggedInUsername);
@@ -52,12 +52,11 @@ public class ProfileController {
             
         }
 
-        // Yeh "account.html" file ko render karega
         return "account";
     }
 
 
-    // NAYA API ENDPOINT: Frontend se JSON receive karne ke liye
+
     @PostMapping("/api/profile/status")
     @ResponseBody 
     public ResponseEntity<?> updateNetworkStatus(@RequestBody StatusUpdateRequest request, Principal principal) {
