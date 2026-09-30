@@ -433,7 +433,11 @@ function startChatFromSearch(targetUser) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
-    .then(response => response.json())
+    .then(response => {
+        
+        if (!response.ok) return response.json().then(d => { throw new Error(d.message || `server error (${response.status})`); });
+        return response.json();
+    })
     .then(room => {
         // 🎯 CRITICAL: Ab hum room.name ko 'currentRoom' variable me store karenge
         currentRoom = room.name; 

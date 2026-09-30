@@ -72,76 +72,26 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 3000);
     };
 
-    // ===== CONTACTS INBOX =====
-    const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, c =>
-        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
-    const renderInbox = async () => {
+    // ===== ROOM REQUESTS (server-rendered inbox buttons) =====
+    const updateRoomStatus = async (btn, action) => {
+        const roomName = btn.dataset.room;
+        if (!roomName) return;
+        btn.disabled = true; // double-click race guard
         try {
-            const [reqRes, conRes] = await Promise.all([
-                fetch('/api/contacts/requests'),
-                fetch('/api/contacts')
-            ]);
-            if (!reqRes.ok || !conRes.ok) throw new Error(`load failed (${reqRes.status})`);
-
-            const requests = await reqRes.json();
-            const contacts = await conRes.json();
-            const incoming = requests.incoming || [];
-            const outgoing = requests.outgoing || [];
-
-            document.getElementById('incomingList').innerHTML = incoming.length
-                ? incoming.map(r => `
-                    <div class="request-row">
-                        <span>${escapeHtml(r.username)}</span>
-                        <span>
-                            <button class="req-btn accept" onclick="acceptRequest('${r.id}')">Accept</button>
-                            <button class="req-btn reject" onclick="rejectRequest('${r.id}')">Reject</button>
-                        </span>
-                    </div>`).join('')
-                : '<p class="empty-note">No pending requests</p>';
-
-            document.getElementById('outgoingList').innerHTML = outgoing.length
-                ? outgoing.map(r => `
-                    <div class="request-row"><span>${escapeHtml(r.username)} (sent)</span></div>`).join('')
-                : '<p class="empty-note">No sent requests</p>';
-
-            document.getElementById('contactsList').innerHTML = contacts.length
-                ? contacts.map(c => `
-                    <div class="request-row"><span>${escapeHtml(c.username)}</span></div>`).join('')
-                : '<p class="empty-note">No contacts yet</p>';
-
-            // live counts (server-rendered values ko override karte hain)
-            const stats = document.querySelectorAll('.stat-number');
-            if (stats.length >= 2) {
-                stats[0].textContent = contacts.length;
-                stats[1].textContent = incoming.length;
-            }
-        } catch (err) {
-            console.error(err);
-            showAlert('Could not load contacts.', 'error');
+            const res = await fetch(`/api/rooms/${encodeURIComponent(roomName)}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestStatus: action })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.message || `server error (${res.status})`);
+            location.reload(); // server counts + lists fresh render karega
+        } catch (e) {
+            btn.disabled = false;
+            showAlert(e.message, 'error');
         }
     };
 
-    window.acceptRequest = async (id) => {
-        try {
-            const res = await fetch(`/api/contacts/${id}/accept`, { method: 'POST' });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.message || `server error (${res.status})`);
-            showAlert('Request accepted', 'success');
-            renderInbox();
-        } catch (e) { showAlert(e.message, 'error'); }
-    };
-
-    window.rejectRequest = async (id) => {
-        try {
-            const res = await fetch(`/api/contacts/${id}/reject`, { method: 'POST' });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.message || `server error (${res.status})`);
-            showAlert('Request rejected', 'success');
-            renderInbox();
-        } catch (e) { showAlert(e.message, 'error'); }
-    };
-
-    renderInbox();
-
+    window.acceptRoom = (btn) => updateRoomStatus(btn, 'ACCEPTED');
+    window.rejectRoom = (btn) => updateRoomStatus(btn, 'REJECTED');
 });

@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JSR310Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.arshad.chat_backend.entity.User;
+import java.util.NoSuchElementException;
 import com.arshad.chat_backend.entity.UserStatus;
 import com.arshad.chat_backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,14 +65,7 @@ public class RoomService {
         if (members.get(0).equals(members.get(1))) {
             throw new IllegalArgumentException("cannot create dn with yourself");
         }
-        for (String member : members) {
-            if (member.equals(creator))
-                continue;
-            var targetUser = userRepository.findByUsername(member);
-            if (targetUser.isPresent() && targetUser.get().getStatus() == UserStatus.SLEEPING) {
-                throw new SecurityException(member + " is in sleeping mode right now");
-            }
-        }
+        
         Collections.sort(members);
 
         String uniqueRoomName = "DM-" + members.get(0) + "-AND-" + members.get(1);
@@ -81,7 +75,16 @@ public class RoomService {
             log.info("DM Room '{}' already exists.", uniqueRoomName);
             return existingRoom.get();
         }
-
+        for (String member : members) {
+            if (member.equals(creator))
+                continue;
+            User targetUser = userRepository.findByUsername(member)
+            .orElseThrow(() -> new NoSuchElementException("user not found "+member));
+            if (targetUser.getStatus() == UserStatus.SLEEPING) {
+                throw new SecurityException(member + " is in sleeping mode right now");
+            }
+        }
+        
         room.setName(uniqueRoomName);
         room.setRequestStatus("PENDING");
         room.setInitiator(creator);
@@ -142,13 +145,23 @@ public class RoomService {
 
     public ChatRoom updateRoomStatus(String roomName, String newRequestStatus, String currentUser) {
         ChatRoom room = roomRepository.findByName(roomName)
-                .orElseThrow(() -> new RuntimeException("Room not found!"));
+                .orElseThrow(() -> new NoSuchElementException("Room not found!"));
 
-        if (currentUser.equalsIgnoreCase(room.getInitiator())) {
-            throw new RuntimeException("Initiator cannot accept/reject their own request!");
+       
+        if (!room.getMembers().contains(currentUser)) {
+            throw new SecurityException("you are not a member of this chat");
+        }
+        if (!"PENDING".equals(room.getRequestStatus())){
+            throw new IllegalArgumentException("request no longer pending");
+        }
+        if (currentUser.equalsIgnoreCase(room.getInitiator())){
+            throw new SecurityException("initiator can't update chat status itself");
+        }
+        if (!"ACCEPTED".equals(newRequestStatus) && !"REJECTED".equals(newRequestStatus)){
+            throw new IllegalArgumentException("invalid status value");
         }
 
-        room.setRequestStatus(newRequestStatus);
+            room.setRequestStatus(newRequestStatus);
         ChatRoom updatedRoom = roomRepository.save(room);
 
         String broadcastText = "";
@@ -159,7 +172,7 @@ public class RoomService {
             broadcastText = "Your request is rejected";
         }
 
-        // 🎯 SENIOR DEV MOVE: Purana try-catch hata kar helper method reuse kiya
+        
         if (!broadcastText.isEmpty()) {
             broadcastSystemMessage(roomName, broadcastText);
         }
@@ -180,18 +193,18 @@ public class RoomService {
                 .toList();
     }
 
-    public List<ChatRoom> getPendingRequests(String user){
+    public List<ChatRoom> getPendingRequests(String user) {
         return getMyDms(user).stream()
-        .filter(room -> "PENDING".equals(room.getRequestStatus()))
-        .filter(room -> !user.equals(room.getInitiator()))
-        .toList();
+                .filter(room -> "PENDING".equals(room.getRequestStatus()))
+                .filter(room -> !user.equals(room.getInitiator()))
+                .toList();
     }
-    
-    public List<ChatRoom> getPendingSent(String user){
+
+    public List<ChatRoom> getPendingSent(String user) {
         return getMyDms(user).stream()
-        .filter(room -> "PENDING".equals(room.getRequestStatus()))
-        .filter( room -> user.equals(room.getInitiator()))
-        .toList();
+                .filter(room -> "PENDING".equals(room.getRequestStatus()))
+                .filter(room -> user.equals(room.getInitiator()))
+                .toList();
 
     }
 

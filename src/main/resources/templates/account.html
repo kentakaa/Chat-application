@@ -58,21 +58,34 @@
             </div>
         </div>
 
-        <!-- CONTACTS INBOX -->
+        <!-- SOCIAL INBOX (server-rendered from chat_rooms) -->
         <div class="contacts-inbox">
             <h4>Friend Requests</h4>
-            <div id="incomingList" class="request-list">
-                <p class="empty-note">Loading...</p>
+            <div class="request-list">
+                <div class="request-row" th:each="req : ${incomingRequests}">
+                    <span th:text="${req.username}">user</span>
+                    <span>
+                        <button class="req-btn accept" th:attr="data-room=${req.roomName}" onclick="acceptRoom(this)">Accept</button>
+                        <button class="req-btn reject" th:attr="data-room=${req.roomName}" onclick="rejectRoom(this)">Reject</button>
+                    </span>
+                </div>
+                <p class="empty-note" th:if="${#lists.isEmpty(incomingRequests)}">No pending requests</p>
             </div>
 
             <h4>Sent Requests</h4>
-            <div id="outgoingList" class="request-list">
-                <p class="empty-note">Loading...</p>
+            <div class="request-list">
+                <div class="request-row" th:each="req : ${outgoingRequests}">
+                    <span><span th:text="${req.username}">user</span> (waiting...)</span>
+                </div>
+                <p class="empty-note" th:if="${#lists.isEmpty(outgoingRequests)}">No sent requests</p>
             </div>
 
-            <h4>My Contacts</h4>
-            <div id="contactsList" class="request-list">
-                <p class="empty-note">Loading...</p>
+            <h4>My Friends</h4>
+            <div class="request-list">
+                <div class="request-row" th:each="friend : ${friendList}">
+                    <span th:text="${friend}">user</span>
+                </div>
+                <p class="empty-note" th:if="${#lists.isEmpty(friendList)}">No friends yet — start a chat!</p>
             </div>
         </div>
 

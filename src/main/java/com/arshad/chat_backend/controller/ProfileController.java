@@ -1,5 +1,9 @@
 package com.arshad.chat_backend.controller;
-import com.arshad.chat_backend.service.ContactService;
+import com.arshad.chat_backend.entity.ChatRoom;
+import com.arshad.chat_backend.service.RoomService;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import com.arshad.chat_backend.entity.User;
 import com.arshad.chat_backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,8 +27,11 @@ public class ProfileController {
 
     @Autowired
     private UserRepository userRepository;
- @Autowired 
- private ContactService contactService;
+    @Autowired 
+    private RoomService roomService;
+
+
+
 
     @GetMapping("/profile")
     public String showProfilePage(Model model, Principal principal) {
@@ -46,11 +53,61 @@ public class ProfileController {
            
             model.addAttribute("accountType", user.getAccountType());
             model.addAttribute("status", user.getStatus());
-            Map<String,Long> counts = contactService.getCounts(loggedInUsername);
-            model.addAttribute("friendsCount", counts.getOrDefault("contacts", 0L));
-            model.addAttribute("requestsCount", counts.getOrDefault("requests", 0L));
+            
             
         }
+
+List<ChatRoom> friendDms = roomService.getFriendDms(loggedInUsername);
+        List<ChatRoom> incomingRooms = roomService.getPendingRequests(loggedInUsername);
+        List<ChatRoom> outgoingRooms = roomService.getPendingSent(loggedInUsername);
+
+        model.addAttribute("friendsCount", friendDms.size());
+        model.addAttribute("requestsCount", incomingRooms.size());
+
+        List<String> friendList = new ArrayList<>();
+        for (ChatRoom r : friendDms) {
+            for (String m : r.getMembers()) {
+                if (!m.equals(loggedInUsername)) { friendList.add(m); break; }
+            }
+        }
+        model.addAttribute("friendList", friendList);
+
+        List<Map<String, String>> incomingRequests = new ArrayList<>();
+        for (ChatRoom r : incomingRooms) {
+            Map<String, String> item = new LinkedHashMap<>();
+            item.put("roomName", r.getName());
+            item.put("username", r.getInitiator());
+            incomingRequests.add(item);
+        }
+        model.addAttribute("incomingRequests", incomingRequests);
+
+        List<Map<String, String>> outgoingRequests = new ArrayList<>();
+        for (ChatRoom r : outgoingRooms) {
+            String other = "?";
+            for (String m : r.getMembers()) {
+                if (!m.equals(loggedInUsername)) { other = m; break; }
+            }
+            Map<String, String> item = new LinkedHashMap<>();
+            item.put("roomName", r.getName());
+            item.put("username", other);
+            outgoingRequests.add(item);
+        }
+        model.addAttribute("outgoingRequests", outgoingRequests);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         return "account";
     }

@@ -2,7 +2,7 @@ package com.arshad.chat_backend.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Autowired;
-
+import java.util.NoSuchElementException;
 import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
 import java.util.ArrayList;
@@ -17,6 +17,7 @@ import com.arshad.chat_backend.service.RoomService;
 import com.arshad.chat_backend.dto.RoomLeaveEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -73,6 +74,14 @@ public class RoomController {
         } catch (IllegalArgumentException e) {
             log.warn("Room creation rejected by user {}: {}",principal.getName(), e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("message",e.getMessage()!=null?e.getMessage():"invalid room request"));
+        } catch (SecurityException e){
+            log.warn("Room creation for user {}: {}",principal.getName(), e.getMessage());
+            return ResponseEntity.status(403).body(Map.of("message", e.getMessage() != null ? e.getMessage(): "request blocked"));
+    
+        }catch(NoSuchElementException e){
+            log.warn("room creation for unknown user by {}: {}", principal.getName(), e.getMessage());
+            return ResponseEntity.status(404)
+            .body(Map.of("message", e.getMessage()!=null?e.getMessage():"user not found"));
         } catch (Exception e) {
             log.error("Room creation failed", e);
             return ResponseEntity.internalServerError().body(Map.of("message", "creation failed"));
@@ -89,8 +98,21 @@ public class RoomController {
         try {
             var updatedRoom = roomService.updateRoomStatus(roomName, request.getRequestStatus(), principal.getName());
             return ResponseEntity.ok(updatedRoom);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(404)
+                    .body(Map.of("message", e.getMessage() != null ? e.getMessage() : "Room not found"));
+        } catch (SecurityException e) {
+            log.warn("Status update blocked for user {}: {}", principal.getName(), e.getMessage());
+            return ResponseEntity.status(403)
+                    .body(Map.of("message", e.getMessage() != null ? e.getMessage() : "Not allowed"));
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid status update from user {}: {}", principal.getName(), e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage() != null ? e.getMessage() : "Invalid request"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            log.error("Status update failed for room {}", roomName, e);
+            return ResponseEntity.status(500)
+                    .body(Map.of("message", "status update failed"));
         }
     }
 
