@@ -18,7 +18,6 @@ import com.arshad.chat_backend.dto.RoomLeaveEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -39,7 +38,7 @@ public class RoomController {
     private RoomService roomService;
 
     private final ObjectMapper objectMapper = new ObjectMapper()
-    .registerModule(new JavaTimeModule());
+            .registerModule(new JavaTimeModule());
 
     @GetMapping
     public ResponseEntity<?> getUserRooms(Principal principal) {
@@ -72,16 +71,18 @@ public class RoomController {
             ChatRoom savedRoom = roomService.createRoomAndBroadcast(room, principal.getName());
             return ResponseEntity.ok(savedRoom);
         } catch (IllegalArgumentException e) {
-            log.warn("Room creation rejected by user {}: {}",principal.getName(), e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("message",e.getMessage()!=null?e.getMessage():"invalid room request"));
-        } catch (SecurityException e){
-            log.warn("Room creation for user {}: {}",principal.getName(), e.getMessage());
-            return ResponseEntity.status(403).body(Map.of("message", e.getMessage() != null ? e.getMessage(): "request blocked"));
-    
-        }catch(NoSuchElementException e){
+            log.warn("Room creation rejected by user {}: {}", principal.getName(), e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage() != null ? e.getMessage() : "invalid room request"));
+        } catch (SecurityException e) {
+            log.warn("Room creation for user {}: {}", principal.getName(), e.getMessage());
+            return ResponseEntity.status(403)
+                    .body(Map.of("message", e.getMessage() != null ? e.getMessage() : "request blocked"));
+
+        } catch (NoSuchElementException e) {
             log.warn("room creation for unknown user by {}: {}", principal.getName(), e.getMessage());
             return ResponseEntity.status(404)
-            .body(Map.of("message", e.getMessage()!=null?e.getMessage():"user not found"));
+                    .body(Map.of("message", e.getMessage() != null ? e.getMessage() : "user not found"));
         } catch (Exception e) {
             log.error("Room creation failed", e);
             return ResponseEntity.internalServerError().body(Map.of("message", "creation failed"));
@@ -125,7 +126,6 @@ public class RoomController {
         ChatRoom room = roomRepository.findByName(roomName)
                 .orElseThrow(() -> new RuntimeException("Room not found!"));
 
-        
         if (room.isGroupChat()) {
             // Tum future me iska logic alag API endpoint (e.g., /api/groups/{id}/leave) me
             // likh sakte ho
@@ -149,6 +149,8 @@ public class RoomController {
                 chatRepository.deleteByRoomId(roomName);
                 roomRepository.deleteByName(roomName);
                 log.info("MUTUAL CONSENT MET: DM '{}' permanently wiped.", roomName);
+                chatWebSocketHandler.evictRoomCache(roomName);
+
             } else {
                 roomRepository.save(room);
             }
@@ -160,7 +162,7 @@ public class RoomController {
             room.setClosedAt(java.time.LocalDateTime.now());
         }
         roomRepository.save(room);
-
+        chatWebSocketHandler.evictRoomCache(roomName);
         ChatMessage leaveSignal = new ChatMessage();
         leaveSignal.setRoomId(roomName);
         leaveSignal.setSender("SYSTEM");
