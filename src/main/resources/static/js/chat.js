@@ -367,7 +367,10 @@ else if (message.type === 'TYPING') {
 
     function loadHistory(roomName) {
         fetch(`/api/history?room=${roomName}`)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) return response.json().then(d => { throw new Error(d.message || `server error (${response.status})`); });
+                return response.json();
+            })
             .then(messages => {
                 messages.forEach(message => {
                     // Backend schema updates room ID tracking perfectly
