@@ -67,8 +67,9 @@ public void afterConnectionEstablished(@NonNull WebSocketSession session) throws
      }
      if (username == null || username.isEmpty()) {
          log.warn("security: WS connection without authentication - closing");
-         session.close(CloseStatus.NOT_ACCEPTABLE.withReason("unauthorised"));
-     }
+        session.close(CloseStatus.NOT_ACCEPTABLE.withReason("unauthorised"));
+        return;
+    }
 
      session.getAttributes().put("userId", username);
      userSessions.put(username, session);
