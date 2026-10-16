@@ -40,7 +40,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
       
     }
 
-    // Dynamic cache update hook
+
     public void evictRoomCache(String roomId) {
         if (roomId != null) {
             this.roomStatusCache.remove(roomId);
@@ -61,26 +61,20 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
  @Override
 public void afterConnectionEstablished(@NonNull WebSocketSession session) throws Exception {
-    // 1. Pehle purane tareeke se dhoondhne ki koshish karo
-    String userId = (String) session.getAttributes().get("userId");
+     String username = null;
+     if (session.getPrincipal() != null && session.getPrincipal().getName() != null) {
+         username = session.getPrincipal().getName().trim();
+     }
+     if (username == null || username.isEmpty()) {
+         log.warn("security: WS connection without authentication - closing");
+         session.close(CloseStatus.NOT_ACCEPTABLE.withReason("unauthorised"));
+     }
 
-    // 2. Agar null mile, toh naye Native URL tareeke se uthao
-    if (userId == null && session.getUri() != null && session.getUri().getQuery() != null) {
-        String query = session.getUri().getQuery();
-        if (query.contains("user=")) {
-            userId = query.split("user=")[1].split("&")[0];
-        }       
-    }
+     session.getAttributes().put("userId", username);
+     userSessions.put(username, session);
+     log.info("new ws connection: user = {} | online = {}", username, userSessions.size());
 
-    // 3. Map me properly save karo
-    if (userId != null && !userId.isEmpty() && !"null".equals(userId)) {
-        userSessions.put(userId, session);
-        log.info("New connection established user: {} | Total users: {}", userId, userSessions.size());
-    } else {
-        log.error(" CRITICAL: Connection established but userId is NULL!");
-    }
-}
-
+ }
     @Override
     protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) throws Exception {
         String payload = message.getPayload();
@@ -90,6 +84,22 @@ public void afterConnectionEstablished(@NonNull WebSocketSession session) throws
             String roomId = chatMessage.getRoomId();
             String messageType = chatMessage.getType();
             String sender = chatMessage.getSender();
+
+            String sessionUser = session.getPrincipal() != null
+                    ? session.getPrincipal().getName()
+                    : (String) session.getAttributes().get("userId");
+            if (sessionUser == null || !sessionUser.equalsIgnoreCase(sender)) {
+                log.warn("SECURITY BLOCK: sender mismatch (session='{}', claimed='{}')", sessionUser, sender);
+                return;
+            }
+            // S2 FIX: server-only types client se reject (legit: CHAT/TYPING only)
+            if (messageType != null
+                    && !"CHAT".equalsIgnoreCase(messageType)
+                    && !"TYPING".equalsIgnoreCase(messageType)) {
+                log.warn("SECURITY BLOCK: client-sent server-type '{}' from '{}'", messageType, sessionUser);
+                return;
+            }
+
 
             if ("TYPING".equalsIgnoreCase(messageType)) {
                 log.debug("User '{}' is typing in room '{}'", sender, roomId);

@@ -16,7 +16,7 @@ window.onload = function () {
         //UPGRADE: Pure Native Secure Pipeline Establishment
       
         const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-        socket = new WebSocket(protocol + window.location.host + '/ws?user='+encodeURIComponent(username));
+        socket = new WebSocket(protocol + window.location.host + '/ws');
         // window.onload = function () { ... ke andar kahin bhi daal de:
 const msgInput = document.querySelector('#message');
 if(msgInput) {

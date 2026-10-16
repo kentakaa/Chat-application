@@ -25,3 +25,4 @@ application-dev.yml
 Thumbs.db
 target/
 SESSION_CONTEXT.md
+.idea/
