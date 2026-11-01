@@ -68,6 +68,19 @@ public class RoomController {
         if (principal == null)
             return ResponseEntity.status(401).body("Unauthorized access.");
         try {
+
+            room.setId(null);
+            room.setDeletedBy(null);
+            room.setClosedAt(null);
+            room.setVanishMode(false);
+            room.setRequestStatus(null);
+            room.setInitiator(null);
+            room.setAdmin(null);
+            room.setCreatedAt(null);
+            room.setUpdatedAt(null);
+
+
+
             ChatRoom savedRoom = roomService.createRoomAndBroadcast(room, principal.getName());
             return ResponseEntity.ok(savedRoom);
         } catch (IllegalArgumentException e) {

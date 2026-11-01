@@ -21,7 +21,7 @@
         @Override
         public void registerWebSocketHandlers(@NonNull WebSocketHandlerRegistry registry) {
             registry.addHandler(chatWebSocketHandler, "/ws")    
-                    .setAllowedOriginPatterns("*") // cors
+                    .setAllowedOriginPatterns("http://localhost:8080") // cors
                     .addInterceptors(new HttpSessionHandshakeInterceptor()); 
         }
     }

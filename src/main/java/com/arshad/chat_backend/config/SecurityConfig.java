@@ -27,7 +27,9 @@ public class SecurityConfig {
                         .permitAll())
 
                 .logout(logout -> logout.permitAll())
-                .csrf(csrf -> csrf.disable()); 
+                .csrf(csrf -> csrf
+                        .ignoringRequestMatchers("/api/**")
+                );
 
         return http.build();
     }

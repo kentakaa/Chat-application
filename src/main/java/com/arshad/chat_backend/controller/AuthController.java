@@ -42,7 +42,7 @@ public String loginPage() {
 
         
         if (userRepository.findByUsername(username).isPresent()) {
-            redirectAttributes.addFlashAttribute("error", "Username is already taken. Try another one!");
+            redirectAttributes.addFlashAttribute("error", "Registeration failed. Try again!");
             return "redirect:/register"; 
         }
 
@@ -56,7 +56,7 @@ public String loginPage() {
 
         userRepository.save(newUser);
 
-        
-        return "redirect:/login?success";
+        redirectAttributes.addFlashAttribute("Success", "Registeration complete, Please log in.");
+        return "redirect:/login";
 }
 }
