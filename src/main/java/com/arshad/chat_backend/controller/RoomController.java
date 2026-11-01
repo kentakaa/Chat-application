@@ -127,8 +127,7 @@ public class RoomController {
                 .orElseThrow(() -> new RuntimeException("Room not found!"));
 
         if (room.isGroupChat()) {
-            // Tum future me iska logic alag API endpoint (e.g., /api/groups/{id}/leave) me
-            // likh sakte ho
+      
             return ResponseEntity.status(501).body("Group chat leave logic will be implemented later.");
         }
 
