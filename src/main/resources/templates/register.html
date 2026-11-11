@@ -15,7 +15,7 @@
             <i class="fa-solid fa-circle-exclamation"></i> <span th:text="${error}"></span>
         </div>
 
-        <form action="/register" method="POST">
+        <form th:action="@{/register}" method="POST">
             <div class="form-group">
                 <label for="username">Choose Username</label>
                 <input type="text" id="username" name="username" placeholder="Enter a unique username" required autocomplete="off" />
