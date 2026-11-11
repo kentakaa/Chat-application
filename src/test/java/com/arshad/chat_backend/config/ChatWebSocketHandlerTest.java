@@ -4,6 +4,7 @@ import com.arshad.chat_backend.entity.ChatMessage;
 import com.arshad.chat_backend.entity.ChatRoom;
 import com.arshad.chat_backend.repository.ChatRepository;
 import com.arshad.chat_backend.repository.RoomRepository;
+import com.arshad.chat_backend.service.RateLimitingService;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +22,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,6 +30,7 @@ public class ChatWebSocketHandlerTest {
 
     @Mock private ChatRepository chatRepository;
     @Mock private RoomRepository roomRepository;
+    @Mock private RateLimitingService rateLimitingService;
 
     @InjectMocks private ChatWebSocketHandler chatWebSocketHandler;
 
@@ -125,6 +128,7 @@ public class ChatWebSocketHandlerTest {
         when(s.isOpen()).thenReturn(true);
         when(roomRepository.findByName("DM-alice-AND-bob"))
                 .thenReturn(Optional.of(dm("DM-alice-AND-bob", "ACCEPTED")));
+        when(rateLimitingService.tryConsume(anyString(), anyString())).thenReturn(true);
         chatWebSocketHandler.afterConnectionEstablished(s);
 
         String payload = "{\"sender\":\"alice\",\"content\":\"hi\",\"type\":\"CHAT\",\"roomId\":\"DM-alice-AND-bob\"}";

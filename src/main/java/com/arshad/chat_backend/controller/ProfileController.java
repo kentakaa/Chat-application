@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.http.ResponseEntity;
 import com.arshad.chat_backend.dto.StatusUpdateRequest;
+import com.arshad.chat_backend.service.RateLimitingService;
 import java.util.Map;
 import java.util.HashMap;
 import lombok.extern.slf4j.Slf4j;
@@ -27,8 +28,10 @@ public class ProfileController {
 
     @Autowired
     private UserRepository userRepository;
-    @Autowired 
+    @Autowired
     private RoomService roomService;
+    @Autowired
+    private RateLimitingService rateLimitingService;
 
 
 
@@ -129,6 +132,13 @@ List<ChatRoom> friendDms = roomService.getFriendDms(loggedInUsername);
         }
 
         String username = principal.getName();
+
+        // rate limit handle
+        if (!rateLimitingService.tryConsume("profile:status", username)) {
+            response.put("error", "Too many requests. Please try again later.");
+            return ResponseEntity.status(429).body(response);
+        }
+
         Optional<User> userOptional = userRepository.findByUsername(username);
 
         // Check 2: Database mein user milna chahiye

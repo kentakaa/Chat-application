@@ -48,6 +48,11 @@ private RateLimitingService rateLimitingService;
     public ResponseEntity<?> getUserRooms(Principal principal) {
         if (principal == null)
             return ResponseEntity.status(401).body("Unauthorized access.");
+        // rate limit handle
+        if (!rateLimitingService.tryConsume("rooms:list", principal.getName())) {
+            return ResponseEntity.status(429)
+                    .body(Map.of("message", "Too many requests. Please try again later.", "retryAfter", "60"));
+        }
         String loggedInUser = principal.getName();
         try {
             List<ChatRoom> allMyRooms = roomRepository.findByMembersContaining(loggedInUser);
@@ -119,6 +124,11 @@ private RateLimitingService rateLimitingService;
             Principal principal) {
         if (principal == null)
             return ResponseEntity.status(401).body("Unauthorized");
+        // rate limit handle
+        if (!rateLimitingService.tryConsume("rooms:status", principal.getName())) {
+            return ResponseEntity.status(429)
+                    .body(Map.of("message", "Too many requests. Please try again later.", "retryAfter", "60"));
+        }
         try {
             var updatedRoom = roomService.updateRoomStatus(roomName, request.getRequestStatus(), principal.getName());
             return ResponseEntity.ok(updatedRoom);
@@ -144,6 +154,11 @@ private RateLimitingService rateLimitingService;
     public ResponseEntity<?> leaveRoom(@PathVariable String roomName, Principal principal) {
         if (principal == null)
             return ResponseEntity.status(401).body("Unauthorized");
+        // rate limit handle
+        if (!rateLimitingService.tryConsume("rooms:leave", principal.getName())) {
+            return ResponseEntity.status(429)
+                    .body(Map.of("message", "Too many requests. Please try again later.", "retryAfter", "60"));
+        }
         String currentUser = principal.getName();
 
         ChatRoom room = roomRepository.findByName(roomName)

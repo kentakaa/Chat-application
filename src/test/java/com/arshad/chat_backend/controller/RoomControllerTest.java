@@ -55,6 +55,7 @@ public class RoomControllerTest {
         ChatRoom room = dm("DM-alice-AND-bob", "REJECTED");
         room.setDeletedBy(new ArrayList<>(List.of("bob")));
         when(roomRepository.findByName("DM-alice-AND-bob")).thenReturn(Optional.of(room));
+        when(rateLimitingService.tryConsume(anyString(), anyString())).thenReturn(true);
 
         var result = roomController.leaveRoom("DM-alice-AND-bob", user("alice"));
 
@@ -69,6 +70,7 @@ public class RoomControllerTest {
         ChatRoom room = dm("DM-alice-AND-bob", "ACCEPTED");
         when(roomRepository.findByName("DM-alice-AND-bob")).thenReturn(Optional.of(room));
         when(roomRepository.save(any(ChatRoom.class))).thenAnswer(i -> i.getArgument(0));
+        when(rateLimitingService.tryConsume(anyString(), anyString())).thenReturn(true);
 
         var result = roomController.leaveRoom("DM-alice-AND-bob", user("alice"));
 

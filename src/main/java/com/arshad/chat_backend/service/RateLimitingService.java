@@ -21,6 +21,11 @@ public class RateLimitingService {
         registerBucket("rooms:create", 10, 10.0 / 60.0);       // 10 per minute
         registerBucket("history:fetch", 30, 30.0 / 60.0);      // 30 per minute
         registerBucket("users:search", 20, 20.0 / 60.0);       // 20 per minute
+        registerBucket("ws:message", 20, 20.0 / 60.0);         // 20 per minute (WS frames: CHAT + TYPING)
+        registerBucket("rooms:list", 30, 30.0 / 60.0);         // 30 per minute
+        registerBucket("rooms:status", 30, 30.0 / 60.0);       // 30 per minute
+        registerBucket("rooms:leave", 10, 10.0 / 60.0);        // 10 per minute
+        registerBucket("profile:status", 10, 10.0 / 60.0);     // 10 per minute
         registerBucket("default", 60, 60.0 / 60.0);            // 60 per minute fallback
 
         scheduler.scheduleAtFixedRate(this::cleanup, 5, 5, TimeUnit.MINUTES);

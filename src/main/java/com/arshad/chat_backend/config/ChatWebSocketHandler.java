@@ -5,6 +5,7 @@ import com.arshad.chat_backend.entity.ChatRoom;
 import com.arshad.chat_backend.repository.ChatRepository;
 import com.arshad.chat_backend.repository.RoomRepository;
 import com.arshad.chat_backend.dto.RoomLeaveEvent;
+import com.arshad.chat_backend.service.RateLimitingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.socket.CloseStatus;
@@ -31,13 +32,14 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     private final ChatRepository chatRepository;
     private final RoomRepository roomRepository;
+    private final RateLimitingService rateLimitingService;
 
     private final Map<String, String> roomStatusCache = new ConcurrentHashMap<>();
 
-    public ChatWebSocketHandler(ChatRepository chatRepository, RoomRepository roomRepository) {
+    public ChatWebSocketHandler(ChatRepository chatRepository, RoomRepository roomRepository, RateLimitingService rateLimitingService) {
         this.chatRepository = chatRepository;
         this.roomRepository = roomRepository;
-      
+        this.rateLimitingService = rateLimitingService;
     }
 
 
@@ -98,6 +100,12 @@ public void afterConnectionEstablished(@NonNull WebSocketSession session) throws
                     && !"CHAT".equalsIgnoreCase(messageType)
                     && !"TYPING".equalsIgnoreCase(messageType)) {
                 log.warn("SECURITY BLOCK: client-sent server-type '{}' from '{}'", messageType, sessionUser);
+                return;
+            }
+
+            // S8 GUARD: per-user WS rate limit (CHAT + TYPING) — identity checks pass hone ke baad
+            if (!rateLimitingService.tryConsume("ws:message", sessionUser)) {
+                log.warn("SECURITY BLOCK: ws rate limit exceeded for '{}' — message dropped", sessionUser);
                 return;
             }
 
