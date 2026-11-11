@@ -5,7 +5,7 @@ import com.arshad.chat_backend.entity.ChatRoom;
 import com.arshad.chat_backend.repository.ChatRepository;
 import com.arshad.chat_backend.repository.RoomRepository;
 import com.arshad.chat_backend.service.RoomService;
-
+import com.arshad.chat_backend.service.RateLimitingService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,6 +30,7 @@ public class RoomControllerTest {
     @Mock private ChatRepository chatRepository;
     @Mock private RoomRepository roomRepository;
     @Mock private RoomService roomService;
+    @Mock private RateLimitingService rateLimitingService;
 
     @InjectMocks private RoomController roomController;
 

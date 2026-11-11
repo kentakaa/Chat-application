@@ -4,6 +4,7 @@ import com.arshad.chat_backend.entity.ChatMessage;
 import com.arshad.chat_backend.entity.ChatRoom;
 import com.arshad.chat_backend.repository.ChatRepository;
 import com.arshad.chat_backend.repository.RoomRepository;
+import com.arshad.chat_backend.service.RateLimitingService;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,6 +27,7 @@ public class ChatControllerTest {
 
     @Mock private ChatRepository chatRepository;
     @Mock private RoomRepository roomRepository;
+    @Mock private RateLimitingService rateLimitingService;
 
     @InjectMocks private ChatController chatController;
 
@@ -49,6 +51,7 @@ public class ChatControllerTest {
     void history_nonMember_forbiddenWithoutTouchingMessages() {
         when(roomRepository.findByName("DM-alice-AND-bob"))
                 .thenReturn(Optional.of(dm("DM-alice-AND-bob", "ACCEPTED", "alice")));
+        when(rateLimitingService.tryConsume(any(), any())).thenReturn(true);
 
         ResponseEntity<?> result = chatController.getChatHistory("DM-alice-AND-bob", user("mallory"));
 
@@ -59,6 +62,7 @@ public class ChatControllerTest {
     @Test
     void history_unknownRoom_notFound() {
         when(roomRepository.findByName("DM-nope")).thenReturn(Optional.empty());
+        when(rateLimitingService.tryConsume(any(), any())).thenReturn(true);
 
         ResponseEntity<?> result = chatController.getChatHistory("DM-nope", user("alice"));
 
@@ -75,6 +79,7 @@ public class ChatControllerTest {
         msg.setSender("alice");
         msg.setContent("hi");
         when(chatRepository.findByRoomId("DM-alice-AND-bob")).thenReturn(List.of(msg));
+        when(rateLimitingService.tryConsume(any(), any())).thenReturn(true);
 
         ResponseEntity<?> result = chatController.getChatHistory("DM-alice-AND-bob", user("bob"));
 
@@ -87,6 +92,7 @@ public class ChatControllerTest {
         ChatRoom room = dm("DM-alice-AND-bob", "ACCEPTED", "alice");
         room.setDeletedBy(new ArrayList<>(List.of("alice"))); // maine apni view se hataya
         when(roomRepository.findByName("DM-alice-AND-bob")).thenReturn(Optional.of(room));
+        when(rateLimitingService.tryConsume(any(), any())).thenReturn(true);
 
         ResponseEntity<?> result = chatController.getChatHistory("DM-alice-AND-bob", user("alice"));
 
