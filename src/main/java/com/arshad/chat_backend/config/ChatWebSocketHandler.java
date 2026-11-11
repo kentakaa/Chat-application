@@ -7,11 +7,11 @@ import com.arshad.chat_backend.repository.RoomRepository;
 import com.arshad.chat_backend.dto.RoomLeaveEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.context.event.EventListener;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
-import org.springframework.web.socket.CloseStatus;
+
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
@@ -173,6 +173,7 @@ public void afterConnectionEstablished(@NonNull WebSocketSession session) throws
         }
         log.info("Connection closed. Remaining online users {}", userSessions.size());
     }
+
 // for group messaging
    public void broadcastToRoom(String roomId, @NonNull String payload) throws IOException {
     // 1. Database se room uthao (ya cache se agar tumne cache use kiya hai)
@@ -191,6 +192,19 @@ public void afterConnectionEstablished(@NonNull WebSocketSession session) throws
             targetSession.sendMessage(responseMessage);
             log.debug("Message routed successfully for user {}", member);
         }
+    }
+}
+public void removeUserSession(String userId) {
+    if (userId != null) {
+        WebSocketSession session = userSessions.remove(userId);
+        if (session != null && session.isOpen()) {
+            try {
+                session.close(CloseStatus.NOT_ACCEPTABLE.withReason("user logged out"));
+            } catch (IOException e) {
+                log.warn("Failed to close WebSocket session for user '{}'", userId, e);
+            }
+        }
+        log.info("User '{}' session cleaned up. Remaining online: {}", userId, userSessions.size());
     }
 }
 }
