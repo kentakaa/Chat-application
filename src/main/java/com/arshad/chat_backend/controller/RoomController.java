@@ -15,6 +15,7 @@ import com.arshad.chat_backend.repository.ChatRepository;
 import com.arshad.chat_backend.repository.RoomRepository;
 import com.arshad.chat_backend.service.RoomService;
 import com.arshad.chat_backend.dto.RoomLeaveEvent;
+import com.arshad.chat_backend.service.RateLimitingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
@@ -30,6 +31,9 @@ public class RoomController {
 
     @Autowired
     private ChatRepository chatRepository;
+
+    @Autowired
+private RateLimitingService rateLimitingService;
 
     @Autowired
     private RoomRepository roomRepository;
@@ -67,6 +71,12 @@ public class RoomController {
     public ResponseEntity<?> createRoom(@RequestBody ChatRoom room, Principal principal) {
         if (principal == null)
             return ResponseEntity.status(401).body("Unauthorized access.");
+        // rate limit handle
+           if (!rateLimitingService.tryConsume("rooms:create", principal.getName())) {
+        return ResponseEntity.status(429)
+                .body(Map.of("message", "Too many room creation requests. Please try again later.", "retryAfter", "60"));
+            }
+
         try {
 
             room.setId(null);

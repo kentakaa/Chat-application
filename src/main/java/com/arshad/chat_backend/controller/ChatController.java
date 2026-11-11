@@ -13,6 +13,7 @@ import org.springframework.ui.Model;
 import java.security.Principal;
 import java.util.List;
 import java.util.Map;
+import com.arshad.chat_backend.service.RateLimitingService;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -25,6 +26,8 @@ public class ChatController {
 
     @Autowired
     private RoomRepository roomRepository;
+    @Autowired
+private RateLimitingService rateLimitingService;
 
     // root after succesfull login
     @GetMapping("/")
@@ -53,6 +56,11 @@ public class ChatController {
         if (principal == null) {
             return ResponseEntity.status(401).body(Map.of("message", "Unauthorized"));
         }
+
+         if (!rateLimitingService.tryConsume("history:fetch", principal.getName())) {
+        return ResponseEntity.status(429)
+                .body(Map.of("message", "Too many history requests. Please try again later.", "retryAfter", "60"));
+    }
         String user = principal.getName();
 
         ChatRoom chatRoom = roomRepository.findByName(room).orElse(null);

@@ -7,6 +7,7 @@ import com.arshad.chat_backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
+import com.arshad.chat_backend.service.RateLimitingService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,6 +22,9 @@ public class AuthController {
     private UserRepository userRepository;
 
     @Autowired
+private RateLimitingService rateLimitingService;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
 
@@ -31,6 +35,7 @@ public class AuthController {
     
 @GetMapping("/login")
 public String loginPage() {
+    
     return "login";     
 }
 
@@ -40,7 +45,10 @@ public String loginPage() {
                                       @RequestParam AccountType accountType,
                                       RedirectAttributes redirectAttributes) {
 
-        
+           if (!rateLimitingService.tryConsume("auth:register", username)) {
+        redirectAttributes.addFlashAttribute("error", "Too many registration attempts. Please try again later.");
+        return "redirect:/register";
+    }
         if (userRepository.findByUsername(username).isPresent()) {
             redirectAttributes.addFlashAttribute("error", "Registeration failed. Try again!");
             return "redirect:/register"; 

@@ -7,8 +7,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import com.arshad.chat_backend.service.RateLimitingService;
 import lombok.extern.slf4j.Slf4j;
 import java.security.Principal;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -19,6 +21,9 @@ public class UserController {
     @Autowired
     private UserService userService;
 
+    @Autowired
+private RateLimitingService rateLimitingService;
+
     // API Endpoint: GET /api/users/search?q=rahul
     @GetMapping("/search")
     public ResponseEntity<?> searchUsers(@RequestParam("q") String query, Principal principal) {
@@ -28,6 +33,10 @@ public class UserController {
             log.warn("WARNING: Unauthorized search attempt.");
             return ResponseEntity.status(401).body("Unauthorized access. Please login.");
         }
+        if (!rateLimitingService.tryConsume("users:search", principal.getName())) {
+    return ResponseEntity.status(429)
+        .body(Map.of("message", "Too many search requests. Please try again later.", "retryAfter", "60"));
+}
 
         // 2. Resource Saving (Bad Request)
         if (query == null || query.trim().isEmpty()) {
