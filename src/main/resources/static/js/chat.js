@@ -1,3 +1,5 @@
+
+
 var socket = null; 
 var username = window.CURRENT_USERNAME;
 var currentRoom = null;
@@ -7,6 +9,17 @@ var roomDetailsCache = {};
 let lastTypingTime = 0;
 const TYPING_TIMER_LENGTH = 2000;
 
+// S1 FIX: Escape HTML special chars to prevent XSS when interpolating user data into innerHTML
+function escapeHtml(text) {
+    if (text == null) return text;
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 window.onload = function () {
     if (username && username !== 'Unknown') {
         document.getElementById('my-avatar').innerText = username.charAt(0).toUpperCase();
@@ -14,7 +27,7 @@ window.onload = function () {
         //UPGRADE: Pure Native Secure Pipeline Establishment
       
         const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-        socket = new WebSocket(protocol + window.location.host + '/ws?user='+encodeURIComponent(username));
+        socket = new WebSocket(protocol + window.location.host + '/ws');
         // window.onload = function () { ... ke andar kahin bhi daal de:
 const msgInput = document.querySelector('#message');
 if(msgInput) {
@@ -87,15 +100,15 @@ function fetchAndDisplayRooms(autoJoin = false) {
                 let initial = displayName ? displayName.charAt(0).toUpperCase() : '?';
 
                 listDiv.innerHTML += `
-                    <div class="chat-list-item" id="btn-${room.name}" onclick="openChannel('${room.name}')">
-                        <div class="chat-avatar">${initial}</div>
+                    <div class="chat-list-item" id="btn-${escapeHtml(room.name)}" onclick="openChannel('${escapeHtml(room.name)}')">
+                        <div class="chat-avatar">${escapeHtml(initial)}</div>
                         <div class="chat-info">
                             <div class="chat-row">
-                                <span class="chat-name">${displayName}</span>
+                                <span class="chat-name">${escapeHtml(displayName)}</span>
                                 <span class="chat-time">Active</span>
                             </div>
-                            <div class="chat-row">
-                                <span class="chat-name">${room.name}</span> </div>
+                            
+                                
                         </div>
                     </div>
                 `;
@@ -109,21 +122,30 @@ function fetchAndDisplayRooms(autoJoin = false) {
 
 
     function createNewRoom() {
-        var roomName = prompt("Enter group name:");
-        if (roomName && roomName.trim() !== "") {
+        const groupName = prompt("Enter group name:");
+        if (!groupName || !groupName.trim()) return;  
             fetch('/api/rooms', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: roomName })
-            }).then(response => {
-                if (!response.ok) throw new Error("Channel already exists");
-                return response.json();
-            }).then(newRoom => {
+                body: JSON.stringify({ 
+                    groupChat: true,
+                    displayName: groupName.trim(),
+                    members:[username]
+                 })
+            }).then(async response => {
+                const data = await response.json().catch(() => null);
+                if (!response.ok) {throw new Error(
+                    data?.message || `server error (${response.status})`
+                );
+            }
+            return data;
+        }
+        ).then(newRoom => {
                 fetchAndDisplayRooms(false);
                 setTimeout(() => openChannel(newRoom.name), 200);
             }).catch(err => alert(err.message));
         }
-    }
+    
 
     /**
  * @param {Object|string} room - Poora ChatRoom object ya sirf roomName string
@@ -155,7 +177,7 @@ function openChannel(room) {
     document.getElementById('current-room-name').innerText = displayName;
     document.getElementById('current-room-avatar').innerText = displayName ? displayName.charAt(0).toUpperCase() : '?';
 
-    // UI States (Like: Is chat blocked? Is it vanish mode?)
+
     checkRoomUIState(roomObject);
 
     // Sidebar Active Class toggle
@@ -232,7 +254,7 @@ function onMessageReceived(rawData) {
         if (message.type === 'JOIN' || message.type === 'LEAVE') {
             messageRow.className = 'message-row message-system';
             var text = message.type === 'JOIN' ? ' joined' : ' left';
-            messageRow.innerHTML = `<span>${message.sender}${text}</span>`;
+            messageRow.innerHTML = `<span>${escapeHtml(message.sender)}${escapeHtml(text)}</span>`;
         }
         else if (message.type === 'LEAVE_EVENT') {
             let leaver = message.content.split(' ')[0];
@@ -254,9 +276,9 @@ function onMessageReceived(rawData) {
                 blockedArea.style.display = 'block';
 
                 blockedArea.innerHTML = `
-                <div style="font-size: 16px;">${leaveText}</div>
+                <div style="font-size: 16px;">${escapeHtml(leaveText)}</div>
                 <div style="font-size: 13px; color: #fca5a5; margin-top: 6px; font-weight: normal;">
-                    <i class="fa-regular fa-clock"></i> Chat will be permanently deleted on <b>${timeString}</b>
+                    <i class="fa-regular fa-clock"></i> Chat will be permanently deleted on <b>${escapeHtml(timeString)}</b>
                 </div>
             `;
                 if (activeActions) activeActions.style.display = 'none';
@@ -270,7 +292,7 @@ function onMessageReceived(rawData) {
 
             messageRow.className = 'message-row message-system';
             messageRow.innerHTML = `<span style="background: #7f1d1d; border: 1px solid #ef4444; padding: 6px 16px; border-radius: 20px; color: #fca5a5; font-size: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-            <b>${leaveText}</b> <br> <i class="fa-regular fa-clock"></i> Deletes on ${timeString}
+            <b>${escapeHtml(leaveText)}</b> <br> <i class="fa-regular fa-clock"></i> Deletes on ${escapeHtml(timeString)}
         </span>`;
         }
        // displayMessage function ke andar:
@@ -291,7 +313,7 @@ else if (message.type === 'TYPING') {
 }
         else if (message.type === 'SYSTEM') {
             messageRow.className = 'message-row message-system';
-            messageRow.innerHTML = `<span style="background: #334155; padding: 5px 15px; border-radius: 10px; color: #cbd5e1; font-size: 12px;">${message.content}</span>`;
+            messageRow.innerHTML = `<span style="background: #334155; padding: 5px 15px; border-radius: 10px; color: #cbd5e1; font-size: 12px;">${escapeHtml(message.content)}</span>`;
             let displayContent = message.content;
             if (displayContent.startsWith(username + " ")) {
                 displayContent = displayContent.replace(username + " ", "You ");
@@ -320,8 +342,8 @@ else if (message.type === 'TYPING') {
 
             messageRow.innerHTML = `
             <div class="message-bubble">
-                ${!isMe ? `<div class="sender-name">${message.sender}</div>` : ''}
-                <span>${message.content}</span>
+                ${!isMe ? `<div class="sender-name">${escapeHtml(message.sender)}</div>` : ''}
+                <span>${escapeHtml(message.content)}</span>
                 <span class="msg-footer">
                     <span class="msg-time">${time}</span>
                     ${isMe ? `<i class="fa-solid fa-check-double tick-blue"></i>` : ''}
@@ -356,7 +378,10 @@ else if (message.type === 'TYPING') {
 
     function loadHistory(roomName) {
         fetch(`/api/history?room=${roomName}`)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) return response.json().then(d => { throw new Error(d.message || `server error (${response.status})`); });
+                return response.json();
+            })
             .then(messages => {
                 messages.forEach(message => {
                     // Backend schema updates room ID tracking perfectly
@@ -399,9 +424,9 @@ else if (message.type === 'TYPING') {
             users.forEach(user => {
                 let initial = user.username.charAt(0).toUpperCase();
                 resultsDiv.innerHTML += `
-                <div class="search-item" onclick="startChatFromSearch('${user.username}')" style="display: flex; align-items: center; padding: 10px; cursor: pointer; border-bottom: 1px solid #334155;">
-                    <div class="chat-avatar" style="margin-right: 10px;">${initial}</div>
-                    <span class="chat-name">${user.username}</span>
+                <div class="search-item" onclick="startChatFromSearch('${escapeHtml(user.username)}')" style="display: flex; align-items: center; padding: 10px; cursor: pointer; border-bottom: 1px solid #334155;">
+                    <div class="chat-avatar" style="margin-right: 10px;">${escapeHtml(initial)}</div>
+                    <span class="chat-name">${escapeHtml(user.username)}</span>
                 </div>
             `;
             });
@@ -413,7 +438,7 @@ function startChatFromSearch(targetUser) {
     // ... search inputs clear karne ka logic ...
 
     const payload = {
-        isGroupChat: false, // Ensure this matches ChatRoom entity field
+        groupChat: false, 
         members: [username, targetUser] 
     };
 
@@ -422,7 +447,11 @@ function startChatFromSearch(targetUser) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
-    .then(response => response.json())
+    .then(response => {
+        
+        if (!response.ok) return response.json().then(d => { throw new Error(d.message || `server error (${response.status})`); });
+        return response.json();
+    })
     .then(room => {
         // 🎯 CRITICAL: Ab hum room.name ko 'currentRoom' variable me store karenge
         currentRoom = room.name; 
@@ -488,9 +517,9 @@ function startChatFromSearch(targetUser) {
                 });
 
                 blockedArea.innerHTML = `
-                <div style="font-size: 16px;">${leaveText}</div>
+                <div style="font-size: 16px;">${escapeHtml(leaveText)}</div>
                 <div style="font-size: 13px; color: #fca5a5; margin-top: 6px; font-weight: normal;">
-                    <i class="fa-regular fa-clock"></i> Chat will be permanently deleted on <b>${timeString}</b>
+                    <i class="fa-regular fa-clock"></i> Chat will be permanently deleted on <b>${escapeHtml(timeString)}</b>
                 </div>
             `;
             } else {

@@ -4,11 +4,16 @@ import com.arshad.chat_backend.entity.ChatMessage;
 import com.arshad.chat_backend.entity.ChatRoom;
 import com.arshad.chat_backend.repository.ChatRepository;
 import com.arshad.chat_backend.repository.RoomRepository;
-import com.arshad.chat_backend.dto.RoomLeaveEvent; 
+import com.arshad.chat_backend.dto.RoomLeaveEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
+import com.fasterxml.jackson.datatype.jsr310.JSR310Module;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.arshad.chat_backend.entity.User;
+import java.util.NoSuchElementException;
+import com.arshad.chat_backend.entity.UserStatus;
+import com.arshad.chat_backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher; 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,9 +31,12 @@ public class RoomService {
     private ChatRepository chatRepository;
 
     @Autowired
-    private ApplicationEventPublisher eventPublisher; 
+    private ApplicationEventPublisher eventPublisher;
+    @Autowired
+    private UserRepository userRepository;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule());
 
     // ==========================================
     // 1. MAIN ROUTER (Controller isko call karega)
@@ -46,28 +54,42 @@ public class RoomService {
         }
     }
 
-    // ==========================================
-    // 1A. DIRECT MESSAGE (DM) LOGIC
-    // ==========================================
     private ChatRoom createDirectMessageRoom(ChatRoom room, String creator) {
-        if (room.getMembers() == null) room.setMembers(new ArrayList<>());
+        if (room.getMembers() == null)
+            room.setMembers(new ArrayList<>());
 
         List<String> members = room.getMembers();
-        Collections.sort(members); 
+        if (members.size() != 2) {
+            throw new IllegalArgumentException("Direct message requires 2 members");
+        }
+        if (members.get(0).equals(members.get(1))) {
+            throw new IllegalArgumentException("cannot create dn with yourself");
+        }
         
+        Collections.sort(members);
+
         String uniqueRoomName = "DM-" + members.get(0) + "-AND-" + members.get(1);
-        
+
         var existingRoom = roomRepository.findByName(uniqueRoomName);
         if (existingRoom.isPresent()) {
             log.info("DM Room '{}' already exists.", uniqueRoomName);
             return existingRoom.get();
         }
-
-        room.setName(uniqueRoomName);
-        room.setRequestStatus("PENDING"); 
-        room.setInitiator(creator);
-        room.setGroupChat(false); 
+        for (String member : members) {
+            if (member.equals(creator))
+                continue;
+            User targetUser = userRepository.findByUsername(member)
+            .orElseThrow(() -> new NoSuchElementException("user not found "+member));
+            if (targetUser.getStatus() == UserStatus.SLEEPING) {
+                throw new SecurityException(member + " is in sleeping mode right now");
+            }
+        }
         
+        room.setName(uniqueRoomName);
+        room.setRequestStatus("PENDING");
+        room.setInitiator(creator);
+        room.setGroupChat(false);
+
         ChatRoom savedRoom = roomRepository.save(room);
 
         // Naye helper method ka use kiya
@@ -76,34 +98,34 @@ public class RoomService {
         return savedRoom;
     }
 
-    // ==========================================
-    // 1B. GROUP CHAT LOGIC 
-    // ==========================================
     private ChatRoom createGroupChatRoom(ChatRoom room, String creator) {
-        if (room.getMembers() == null) room.setMembers(new ArrayList<>());
+        if (room.getMembers() == null)
+            room.setMembers(new ArrayList<>());
 
         String groupUuid = "GROUP-" + java.util.UUID.randomUUID().toString();
-        room.setName(groupUuid); 
-        
+        String requestedName = (room.getDisplayName() != null && !room.getDisplayName().isBlank())
+                ? room.getDisplayName().trim()
+                : (room.getName() != null && !room.getName().isBlank())
+                        ? room.getName()
+                        : null;
+        room.setName(groupUuid);
+        room.setDisplayName(requestedName);
+
         if (!room.getMembers().contains(creator)) {
             room.getMembers().add(creator);
         }
-        
-        room.setAdmin(creator); 
+
+        room.setAdmin(creator);
         room.setRequestStatus("ACCEPTED");
-        room.setGroupChat(true); 
-        
+        room.setGroupChat(true);
+
         ChatRoom savedRoom = roomRepository.save(room);
 
-        // Naye helper method ka use kiya
         broadcastSystemMessage(savedRoom.getName(), "Group initialized by " + creator);
 
         return savedRoom;
     }
 
-    // ==========================================
-    // 2. ADMIN AUTHORITY CHECK (Tumhara purana code - As it is)
-    // ==========================================
     public boolean addMemberToGroup(String roomId, String newMember, String requester) {
         if (roomId == null || roomId.trim().isEmpty()) {
             throw new IllegalArgumentException("Room ID cannot be null or empty!");
@@ -121,18 +143,25 @@ public class RoomService {
         return true;
     }
 
-    // ==========================================
-    // 3. UPDATE ROOM STATUS (Accept/Reject DM Requests)
-    // ==========================================
     public ChatRoom updateRoomStatus(String roomName, String newRequestStatus, String currentUser) {
         ChatRoom room = roomRepository.findByName(roomName)
-                .orElseThrow(() -> new RuntimeException("Room not found!"));
+                .orElseThrow(() -> new NoSuchElementException("Room not found!"));
 
-        if (currentUser.equalsIgnoreCase(room.getInitiator())) {
-            throw new RuntimeException("Initiator cannot accept/reject their own request!");
+       
+        if (!room.getMembers().contains(currentUser)) {
+            throw new SecurityException("you are not a member of this chat");
+        }
+        if (!"PENDING".equals(room.getRequestStatus())){
+            throw new IllegalArgumentException("request no longer pending");
+        }
+        if (currentUser.equalsIgnoreCase(room.getInitiator())){
+            throw new SecurityException("initiator can't update chat status itself");
+        }
+        if (!"ACCEPTED".equals(newRequestStatus) && !"REJECTED".equals(newRequestStatus)){
+            throw new IllegalArgumentException("invalid status value");
         }
 
-        room.setRequestStatus(newRequestStatus);
+            room.setRequestStatus(newRequestStatus);
         ChatRoom updatedRoom = roomRepository.save(room);
 
         String broadcastText = "";
@@ -143,7 +172,7 @@ public class RoomService {
             broadcastText = "Your request is rejected";
         }
 
-        // 🎯 SENIOR DEV MOVE: Purana try-catch hata kar helper method reuse kiya
+        
         if (!broadcastText.isEmpty()) {
             broadcastSystemMessage(roomName, broadcastText);
         }
@@ -151,14 +180,39 @@ public class RoomService {
         return updatedRoom;
     }
 
-    // ==========================================
-    // 4. COMMON HELPER: BROADCAST SYSTEM MESSAGE
-    // ==========================================
+    private List<ChatRoom> getMyDms(String user) {
+        return roomRepository.findByMembersContaining(user).stream()
+                .filter(room -> !room.isGroupChat())
+                .filter(room -> room.getDeletedBy() == null || !room.getDeletedBy().contains(user))
+                .toList();
+    }
+
+    public List<ChatRoom> getFriendDms(String user) {
+        return getMyDms(user).stream()
+                .filter(room -> "ACCEPTED".equals(room.getRequestStatus()))
+                .toList();
+    }
+
+    public List<ChatRoom> getPendingRequests(String user) {
+        return getMyDms(user).stream()
+                .filter(room -> "PENDING".equals(room.getRequestStatus()))
+                .filter(room -> !user.equals(room.getInitiator()))
+                .toList();
+    }
+
+    public List<ChatRoom> getPendingSent(String user) {
+        return getMyDms(user).stream()
+                .filter(room -> "PENDING".equals(room.getRequestStatus()))
+                .filter(room -> user.equals(room.getInitiator()))
+                .toList();
+
+    }
+
     private void broadcastSystemMessage(String roomName, String messageContent) {
         ChatMessage systemMsg = new ChatMessage();
         systemMsg.setRoomId(roomName);
         systemMsg.setSender("SYSTEM");
-        systemMsg.setContent(messageContent); // Ab ye dynamic text lega
+        systemMsg.setContent(messageContent);
         systemMsg.setType("SYSTEM");
 
         try {

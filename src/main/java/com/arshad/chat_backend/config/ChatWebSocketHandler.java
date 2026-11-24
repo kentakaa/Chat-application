@@ -5,13 +5,14 @@ import com.arshad.chat_backend.entity.ChatRoom;
 import com.arshad.chat_backend.repository.ChatRepository;
 import com.arshad.chat_backend.repository.RoomRepository;
 import com.arshad.chat_backend.dto.RoomLeaveEvent;
+import com.arshad.chat_backend.service.RateLimitingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.context.event.EventListener;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
-import org.springframework.web.socket.CloseStatus;
+
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
@@ -31,16 +32,17 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     private final ChatRepository chatRepository;
     private final RoomRepository roomRepository;
+    private final RateLimitingService rateLimitingService;
 
     private final Map<String, String> roomStatusCache = new ConcurrentHashMap<>();
 
-    public ChatWebSocketHandler(ChatRepository chatRepository, RoomRepository roomRepository) {
+    public ChatWebSocketHandler(ChatRepository chatRepository, RoomRepository roomRepository, RateLimitingService rateLimitingService) {
         this.chatRepository = chatRepository;
         this.roomRepository = roomRepository;
-      
+        this.rateLimitingService = rateLimitingService;
     }
 
-    // Dynamic cache update hook
+
     public void evictRoomCache(String roomId) {
         if (roomId != null) {
             this.roomStatusCache.remove(roomId);
@@ -61,26 +63,21 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
  @Override
 public void afterConnectionEstablished(@NonNull WebSocketSession session) throws Exception {
-    // 1. Pehle purane tareeke se dhoondhne ki koshish karo
-    String userId = (String) session.getAttributes().get("userId");
-
-    // 2. Agar null mile, toh naye Native URL tareeke se uthao
-    if (userId == null && session.getUri() != null && session.getUri().getQuery() != null) {
-        String query = session.getUri().getQuery();
-        if (query.contains("user=")) {
-            userId = query.split("user=")[1].split("&")[0];
-        }       
+     String username = null;
+     if (session.getPrincipal() != null && session.getPrincipal().getName() != null) {
+         username = session.getPrincipal().getName().trim();
+     }
+     if (username == null || username.isEmpty()) {
+         log.warn("security: WS connection without authentication - closing");
+        session.close(CloseStatus.NOT_ACCEPTABLE.withReason("unauthorised"));
+        return;
     }
 
-    // 3. Map me properly save karo
-    if (userId != null && !userId.isEmpty() && !"null".equals(userId)) {
-        userSessions.put(userId, session);
-        log.info("New connection established user: {} | Total users: {}", userId, userSessions.size());
-    } else {
-        log.error(" CRITICAL: Connection established but userId is NULL!");
-    }
-}
+     session.getAttributes().put("userId", username);
+     userSessions.put(username, session);
+     log.info("new ws connection: user = {} | online = {}", username, userSessions.size());
 
+ }
     @Override
     protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) throws Exception {
         String payload = message.getPayload();
@@ -90,6 +87,28 @@ public void afterConnectionEstablished(@NonNull WebSocketSession session) throws
             String roomId = chatMessage.getRoomId();
             String messageType = chatMessage.getType();
             String sender = chatMessage.getSender();
+
+            String sessionUser = session.getPrincipal() != null
+                    ? session.getPrincipal().getName()
+                    : (String) session.getAttributes().get("userId");
+            if (sessionUser == null || !sessionUser.equalsIgnoreCase(sender)) {
+                log.warn("SECURITY BLOCK: sender mismatch (session='{}', claimed='{}')", sessionUser, sender);
+                return;
+            }
+            // S2 FIX: server-only types client se reject (legit: CHAT/TYPING only)
+            if (messageType != null
+                    && !"CHAT".equalsIgnoreCase(messageType)
+                    && !"TYPING".equalsIgnoreCase(messageType)) {
+                log.warn("SECURITY BLOCK: client-sent server-type '{}' from '{}'", messageType, sessionUser);
+                return;
+            }
+
+            // S8 GUARD: per-user WS rate limit (CHAT + TYPING) — identity checks pass hone ke baad
+            if (!rateLimitingService.tryConsume("ws:message", sessionUser)) {
+                log.warn("SECURITY BLOCK: ws rate limit exceeded for '{}' — message dropped", sessionUser);
+                return;
+            }
+
 
             if ("TYPING".equalsIgnoreCase(messageType)) {
                 log.debug("User '{}' is typing in room '{}'", sender, roomId);
@@ -162,6 +181,7 @@ public void afterConnectionEstablished(@NonNull WebSocketSession session) throws
         }
         log.info("Connection closed. Remaining online users {}", userSessions.size());
     }
+
 // for group messaging
    public void broadcastToRoom(String roomId, @NonNull String payload) throws IOException {
     // 1. Database se room uthao (ya cache se agar tumne cache use kiya hai)
@@ -180,6 +200,19 @@ public void afterConnectionEstablished(@NonNull WebSocketSession session) throws
             targetSession.sendMessage(responseMessage);
             log.debug("Message routed successfully for user {}", member);
         }
+    }
+}
+public void removeUserSession(String userId) {
+    if (userId != null) {
+        WebSocketSession session = userSessions.remove(userId);
+        if (session != null && session.isOpen()) {
+            try {
+                session.close(CloseStatus.NOT_ACCEPTABLE.withReason("user logged out"));
+            } catch (IOException e) {
+                log.warn("Failed to close WebSocket session for user '{}'", userId, e);
+            }
+        }
+        log.info("User '{}' session cleaned up. Remaining online: {}", userId, userSessions.size());
     }
 }
 }

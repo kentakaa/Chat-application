@@ -1,5 +1,9 @@
 package com.arshad.chat_backend.controller;
-
+import com.arshad.chat_backend.entity.ChatRoom;
+import com.arshad.chat_backend.service.RoomService;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import com.arshad.chat_backend.entity.User;
 import com.arshad.chat_backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.http.ResponseEntity;
 import com.arshad.chat_backend.dto.StatusUpdateRequest;
+import com.arshad.chat_backend.service.RateLimitingService;
 import java.util.Map;
 import java.util.HashMap;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +28,13 @@ public class ProfileController {
 
     @Autowired
     private UserRepository userRepository;
-// changed
+    @Autowired
+    private RoomService roomService;
+    @Autowired
+    private RateLimitingService rateLimitingService;
+
+
+
 
     @GetMapping("/profile")
     public String showProfilePage(Model model, Principal principal) {
@@ -33,7 +44,7 @@ public class ProfileController {
             return "redirect:/login";
         }
 
-        // 2. Logged-in user ka username nikalo
+        
         String loggedInUsername = principal.getName();
         model.addAttribute("username", loggedInUsername);
 
@@ -42,20 +53,70 @@ public class ProfileController {
 
         if (userOptional.isPresent()) {
             User user = userOptional.get();
-            // HTML par variables bhej rahe hain
+           
             model.addAttribute("accountType", user.getAccountType());
             model.addAttribute("status", user.getStatus());
-            // Dummy logic for friends count (abhi ke liye)
-            model.addAttribute("friendsCount", 12);
-            model.addAttribute("requestsCount", 3);
+            
+            
         }
 
-        // Yeh "account.html" file ko render karega
+List<ChatRoom> friendDms = roomService.getFriendDms(loggedInUsername);
+        List<ChatRoom> incomingRooms = roomService.getPendingRequests(loggedInUsername);
+        List<ChatRoom> outgoingRooms = roomService.getPendingSent(loggedInUsername);
+
+        model.addAttribute("friendsCount", friendDms.size());
+        model.addAttribute("requestsCount", incomingRooms.size());
+
+        List<String> friendList = new ArrayList<>();
+        for (ChatRoom r : friendDms) {
+            for (String m : r.getMembers()) {
+                if (!m.equals(loggedInUsername)) { friendList.add(m); break; }
+            }
+        }
+        model.addAttribute("friendList", friendList);
+
+        List<Map<String, String>> incomingRequests = new ArrayList<>();
+        for (ChatRoom r : incomingRooms) {
+            Map<String, String> item = new LinkedHashMap<>();
+            item.put("roomName", r.getName());
+            item.put("username", r.getInitiator());
+            incomingRequests.add(item);
+        }
+        model.addAttribute("incomingRequests", incomingRequests);
+
+        List<Map<String, String>> outgoingRequests = new ArrayList<>();
+        for (ChatRoom r : outgoingRooms) {
+            String other = "?";
+            for (String m : r.getMembers()) {
+                if (!m.equals(loggedInUsername)) { other = m; break; }
+            }
+            Map<String, String> item = new LinkedHashMap<>();
+            item.put("roomName", r.getName());
+            item.put("username", other);
+            outgoingRequests.add(item);
+        }
+        model.addAttribute("outgoingRequests", outgoingRequests);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         return "account";
     }
 
 
-    // NAYA API ENDPOINT: Frontend se JSON receive karne ke liye
+
     @PostMapping("/api/profile/status")
     @ResponseBody 
     public ResponseEntity<?> updateNetworkStatus(@RequestBody StatusUpdateRequest request, Principal principal) {
@@ -71,6 +132,13 @@ public class ProfileController {
         }
 
         String username = principal.getName();
+
+        // rate limit handle
+        if (!rateLimitingService.tryConsume("profile:status", username)) {
+            response.put("error", "Too many requests. Please try again later.");
+            return ResponseEntity.status(429).body(response);
+        }
+
         Optional<User> userOptional = userRepository.findByUsername(username);
 
         // Check 2: Database mein user milna chahiye

@@ -72,4 +72,26 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 3000);
     };
 
+    // ===== ROOM REQUESTS (server-rendered inbox buttons) =====
+    const updateRoomStatus = async (btn, action) => {
+        const roomName = btn.dataset.room;
+        if (!roomName) return;
+        btn.disabled = true; // double-click race guard
+        try {
+            const res = await fetch(`/api/rooms/${encodeURIComponent(roomName)}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestStatus: action })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.message || `server error (${res.status})`);
+            location.reload(); // server counts + lists fresh render karega
+        } catch (e) {
+            btn.disabled = false;
+            showAlert(e.message, 'error');
+        }
+    };
+
+    window.acceptRoom = (btn) => updateRoomStatus(btn, 'ACCEPTED');
+    window.rejectRoom = (btn) => updateRoomStatus(btn, 'REJECTED');
 });
